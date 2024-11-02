@@ -27,7 +27,6 @@ public:
 	const uint16_t GetCrc(const uint8_t* data, const uint8_t dataSize)
 	{
 		Hasher.begin();
-		Hasher.add(dataSize);
 		Hasher.add(Key, (uint16_t)KeySize);
 		Hasher.add(data, (uint16_t)dataSize);
 
