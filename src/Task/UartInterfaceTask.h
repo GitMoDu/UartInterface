@@ -127,6 +127,7 @@ public:
 		{
 		case StateEnum::WaitingForSerial:
 		case StateEnum::Disabled:
+			UartWriter.Clear();
 			if (Listener != nullptr)
 			{
 				Listener->OnUartStateChange(false);
@@ -196,6 +197,7 @@ public:
 		case StateEnum::WaitingForMessages:
 			if (!SerialInstance)
 			{
+				UartWriter.Clear();
 				State = StateEnum::WaitingForSerial;
 				Task::delay(0);
 				if (Listener != nullptr)
