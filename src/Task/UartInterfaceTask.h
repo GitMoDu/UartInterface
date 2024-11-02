@@ -4,7 +4,7 @@
 #define _UART_INTERFACE_TASK_h
 
 #define _TASK_OO_CALLBACKS
-#include <TaskSchedulerDeclarations.h>
+#include <TSchedulerDeclarations.hpp>
 
 #include <UartInterface.h>
 
@@ -15,7 +15,7 @@
 
 template<typename SerialType,
 	typename UartDefinitions = UartInterface::ExampleUartDefinitions>
-class UartInterfaceTask : private Task
+class UartInterfaceTask : private TS::Task
 {
 private:
 	using MessageDefinition = UartInterface::MessageDefinition;
@@ -51,11 +51,11 @@ private:
 	StateEnum State = StateEnum::Disabled;
 
 public:
-	UartInterfaceTask(Scheduler& scheduler, SerialType& serialInstance, UartInterfaceListener* listener,
+	UartInterfaceTask(TS::Scheduler& scheduler, SerialType& serialInstance, UartInterfaceListener* listener,
 		const uint8_t* key,
 		const uint8_t keySize,
 		Print* serialLogger = nullptr)
-		: Task(TASK_IMMEDIATE, TASK_FOREVER, &scheduler, false)
+		: TS::Task(TASK_IMMEDIATE, TASK_FOREVER, &scheduler, false)
 		, UartWriter(scheduler, serialInstance, OutBuffer)
 		, Codec(key, keySize)
 		, SerialInstance(serialInstance)
@@ -357,7 +357,7 @@ public:
 		}
 
 		return false;
-}
+	}
 #endif
 };
 #endif

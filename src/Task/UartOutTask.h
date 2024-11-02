@@ -4,7 +4,7 @@
 #define _UART_OUT_TASK_h
 
 #define _TASK_OO_CALLBACKS
-#include <TaskSchedulerDeclarations.h>
+#include <TSchedulerDeclarations.hpp>
 
 #include <UartInterface.h>
 
@@ -12,7 +12,7 @@ template<typename SerialType,
 	uint8_t MaxSerialStepOut,
 	uint8_t MessageSizeMax
 >
-class UartOutTask : private Task
+class UartOutTask : private TS::Task
 {
 private:
 	using MessageDefinition = UartInterface::MessageDefinition;
@@ -28,7 +28,7 @@ private:
 	bool MarkerPending = false;
 
 public:
-	UartOutTask(Scheduler& scheduler, SerialType& serialInstance, uint8_t* outBuffer)
+	UartOutTask(TS::Scheduler& scheduler, SerialType& serialInstance, uint8_t* outBuffer)
 		: Task(TASK_IMMEDIATE, TASK_FOREVER, &scheduler, false)
 		, SerialInstance(serialInstance)
 		, OutBuffer(outBuffer)
@@ -48,7 +48,7 @@ public:
 		{
 			//SerialInstance.disableBlockingTx();
 			Clear();
-			Task::disable();
+			TS::Task::disable();
 
 			return true;
 		}
@@ -76,7 +76,7 @@ public:
 		OutIndex = 0;
 		MarkerPending = true;
 
-		Task::enable();
+		TS::Task::enableDelayed(TASK_IMMEDIATE);
 
 		return true;
 	}
@@ -86,7 +86,7 @@ public:
 		if (!SerialInstance)
 		{
 			Clear();
-			Task::disable();
+			TS::Task::disable();
 
 			return true;
 		}
@@ -131,7 +131,7 @@ public:
 		}
 		else
 		{
-			Task::disable();
+			TS::Task::disable();
 
 			return false;
 		}
