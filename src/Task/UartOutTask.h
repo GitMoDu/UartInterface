@@ -8,12 +8,29 @@
 
 #include <UartInterface.h>
 
+/// <summary>
+/// Stream writer.
+/// </summary>
+/// <typeparam name="SerialType"></typeparam>
+/// <typeparam name="MaxSerialStepOut"></typeparam>
+/// <typeparam name="MessageSizeMax"></typeparam>
 template<typename SerialType,
 	uint8_t MaxSerialStepOut,
-	uint8_t MessageSizeMax
->
+	uint8_t MessageSizeMax,
+	uint32_t WriteTimeoutMillis = 20>
 class UartOutTask : private TS::Task
 {
+private:
+	enum class StateEnum : uint8_t
+	{
+		NotSending,
+		SendingStartDelimiter,
+		SendingData,
+		SendingEndDelimiter
+	};
+
+	StateEnum SendState = StateEnum::NotSending;
+
 private:
 	using MessageDefinition = UartInterface::MessageDefinition;
 
@@ -22,10 +39,9 @@ private:
 	uint8_t* OutBuffer;
 
 private:
+	uint32_t OutStart = 0;
 	uint8_t OutSize = 0;
 	uint8_t OutIndex = 0;
-
-	bool MarkerPending = false;
 
 public:
 	UartOutTask(TS::Scheduler& scheduler, SerialType& serialInstance, uint8_t* outBuffer)
@@ -37,16 +53,15 @@ public:
 	void Clear()
 	{
 		OutSize = 0;
-		MarkerPending = false;
+		SendState = StateEnum::NotSending;
 		OutIndex = 0;
+		SerialInstance.clearWriteError();
 	}
 
 	const bool Start()
 	{
-		if (SerialInstance
-			&& OutBuffer != nullptr)
+		if (OutBuffer != nullptr)
 		{
-			//SerialInstance.disableBlockingTx();
 			Clear();
 			TS::Task::disable();
 
@@ -60,7 +75,7 @@ public:
 
 	const bool CanSend() const
 	{
-		return OutSize == 0 && !MarkerPending;
+		return SendState == StateEnum::NotSending;
 	}
 
 	const bool SendMessage(const uint8_t messageSize)
@@ -74,7 +89,9 @@ public:
 
 		OutSize = messageSize;
 		OutIndex = 0;
-		MarkerPending = true;
+		SendState = StateEnum::SendingStartDelimiter;
+
+		OutStart = millis();
 
 		TS::Task::enableDelayed(TASK_IMMEDIATE);
 
@@ -91,49 +108,64 @@ public:
 			return true;
 		}
 
-		if (OutSize > 0)
-		{
-			uint8_t steps = 0;
+		const bool writeTimeout = (millis() - OutStart) > WriteTimeoutMillis;
+		uint8_t steps = 0;
 
-			while (OutIndex < OutSize
-				&& steps < MaxSerialStepOut
-				&& SerialInstance
-				&& SerialInstance.availableForWrite())
+		switch (SendState)
+		{
+		case StateEnum::SendingStartDelimiter:
+			if (!SerialInstance || writeTimeout)
 			{
-#if defined(MOCK_UART_INTERFACE)
-				SerialInstance.write('0' + OutBuffer[OutIndex++]);
-#else
-				SerialInstance.write(OutBuffer[OutIndex++]);
-#endif
-
-				if (OutIndex >= OutSize)
-				{
-					OutSize = 0;
-					OutIndex = 0;
-					MarkerPending = true;
-					break;
-				}
-				else
-				{
-					steps++;
-				}
+				SendState = StateEnum::NotSending;
 			}
-		}
-		else if (MarkerPending)
-		{
-			if (SerialInstance.availableForWrite())
+			else if (SerialInstance.availableForWrite())
 			{
 				SerialInstance.write((uint8_t)(MessageDefinition::MessageEnd));
-				//SerialInstance.flush();
-
-				MarkerPending = false;
+				SendState = StateEnum::SendingData;
 			}
-		}
-		else
-		{
-			TS::Task::disable();
+			break;
+		case StateEnum::SendingData:
+			if (!SerialInstance || writeTimeout)
+			{
+				SendState = StateEnum::NotSending;
+			}
+			else
+			{
+				while (OutIndex < OutSize
+					&& steps < MaxSerialStepOut
+					&& SerialInstance.availableForWrite())
+				{
+					SerialInstance.write(OutBuffer[OutIndex++]);
 
-			return false;
+					if (OutIndex >= OutSize)
+					{
+						OutSize = 0;
+						OutIndex = 0;
+						SendState = StateEnum::SendingEndDelimiter;
+						break;
+					}
+					else
+					{
+						steps++;
+					}
+				}
+			}
+			break;
+		case StateEnum::SendingEndDelimiter:
+			if (!SerialInstance || writeTimeout)
+			{
+				SendState = StateEnum::NotSending;
+			}
+			else if (SerialInstance.availableForWrite())
+			{
+				SerialInstance.write((uint8_t)(MessageDefinition::MessageEnd));
+				SendState = StateEnum::NotSending;
+			}
+			break;
+		case StateEnum::NotSending:
+		default:
+			TS::Task::disable();
+			break;
 		}
 
 		return true;

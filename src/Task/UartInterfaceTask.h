@@ -9,6 +9,7 @@
 #include <UartInterface.h>
 
 #include "UartOutTask.h"
+#include "UartIn.h"
 
 #include "../Codec/UartInterfaceCodec.h"
 
@@ -20,7 +21,7 @@ class UartInterfaceTask : private TS::Task
 private:
 	using MessageDefinition = UartInterface::MessageDefinition;
 
-	static constexpr uint32_t CheckPeriodMillis = 50;
+	static constexpr uint32_t CheckPeriodMillis = 10;
 
 private:
 	enum class StateEnum
@@ -28,12 +29,12 @@ private:
 		Disabled,
 		WaitingForSerial,
 		WaitingForMessages,
-		DecodingMessage,
 		DeliveringMessage
 	};
 
 private:
-	UartOutTask<SerialType, UartDefinitions::MaxSerialStepOut, UartDefinitions::MessageSizeMax>UartWriter;
+	UartOutTask<SerialType, UartDefinitions::MaxSerialStepOut, UartDefinitions::MessageSizeMax, UartDefinitions::WriteTimeoutMillis> UartWriter;
+	UartIn<UartDefinitions::MessageSizeMax> UartReader;
 
 private:
 	UartInterfaceCodec<UartDefinitions::MessageSizeMax> Codec;
@@ -57,6 +58,7 @@ public:
 		Print* serialLogger = nullptr)
 		: TS::Task(TASK_IMMEDIATE, TASK_FOREVER, &scheduler, false)
 		, UartWriter(scheduler, serialInstance, OutBuffer)
+		, UartReader(InBuffer)
 		, Codec(key, keySize)
 		, SerialInstance(serialInstance)
 		, Listener(listener)
@@ -164,7 +166,6 @@ public:
 				Task::enableDelayed(0);
 			}
 			break;
-		case StateEnum::DecodingMessage:
 		case StateEnum::DeliveringMessage:
 		case StateEnum::Disabled:
 		default:
@@ -174,19 +175,28 @@ public:
 
 	bool Callback() final
 	{
+		uint8_t steps = 0;
+
 		switch (State)
 		{
 		case StateEnum::Disabled:
 			Task::disable();
 			break;
 		case StateEnum::WaitingForSerial:
-			if (SerialInstance && UartWriter.Start())
+			if (SerialInstance)
 			{
-				State = StateEnum::WaitingForMessages;
-				Task::delay(0);
-				if (Listener != nullptr)
+				if (UartWriter.Start())
 				{
-					Listener->OnUartStateChange(true);
+					State = StateEnum::WaitingForMessages;
+					Task::delay(0);
+					if (Listener != nullptr)
+					{
+						Listener->OnUartStateChange(true);
+					}
+				}
+				else
+				{
+					Task::delay(CheckPeriodMillis);
 				}
 			}
 			else
@@ -197,33 +207,53 @@ public:
 		case StateEnum::WaitingForMessages:
 			if (!SerialInstance)
 			{
-				UartWriter.Clear();
 				State = StateEnum::WaitingForSerial;
 				Task::delay(0);
+				Clear();
 				if (Listener != nullptr)
 				{
 					Listener->OnUartStateChange(false);
 				}
 			}
-			else if (UpdateInSerial())
-			{
-				State = StateEnum::DecodingMessage;
-				Task::delay(0);
-			}
-			else if (SerialInstance.available())
-			{
-				Task::delay(0);
-			}
 			else
 			{
-				Task::delay(CheckPeriodMillis);
+				Task::delay(0);
+				while (steps < UartDefinitions::MaxSerialStepIn
+					&& SerialInstance.available())
+				{
+					InSize = UartReader.ParseIn(SerialInstance.read());
+					if (InSize > 0) // Delimited packet detected.
+					{
+						State = StateEnum::DeliveringMessage;
+						return true;
+					}
+					else
+					{
+						steps++;
+					}
+				}
+
+				if (!SerialInstance.available())
+				{
+					Task::delay(UartDefinitions::ReadPollPeriodMillis);
+				}
 			}
 			break;
-		case StateEnum::DecodingMessage:
-			if (InSize > MessageDefinition::MessageSizeMin
-				&& Codec.DecodeMessageInPlaceIfValid(InBuffer, InSize))
+		case StateEnum::DeliveringMessage:
+			if (Codec.DecodeMessageInPlaceIfValid(InBuffer, InSize))
 			{
-				State = StateEnum::DeliveringMessage;
+				if (Listener != nullptr)
+				{
+					if (MessageDefinition::GetPayloadSize(InSize - 1) > 0)
+					{
+						Listener->OnMessageReceived(InBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Header],
+							&InBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Payload], MessageDefinition::GetPayloadSize(InSize - 1));
+					}
+					else
+					{
+						Listener->OnMessageReceived(InBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Header]);
+					}
+				}
 			}
 			else
 			{
@@ -231,25 +261,7 @@ public:
 				if (SerialLogger != nullptr) {
 					SerialLogger->println(F("Rx fail"));
 				}
-				InSize = 0;
-				State = StateEnum::WaitingForMessages;
 			}
-			Task::delay(0);
-			break;
-		case StateEnum::DeliveringMessage:
-			if (Listener != nullptr)
-			{
-				if (MessageDefinition::GetPayloadSize(InSize - 1) > 0)
-				{
-					Listener->OnMessageReceived(InBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Header],
-						&InBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Payload], MessageDefinition::GetPayloadSize(InSize - 1));
-				}
-				else
-				{
-					Listener->OnMessageReceived(InBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Header]);
-				}
-			}
-			InSize = 0;
 			State = StateEnum::WaitingForMessages;
 			Task::delay(0);
 			break;
@@ -260,55 +272,35 @@ public:
 		return true;
 	}
 
-private:
 	void Clear()
 	{
 		InSize = 0;
 		UartWriter.Clear();
-	}
-
-	const bool UpdateInSerial()
-	{
-		uint8_t steps = 0;
-
-		while (steps < UartDefinitions::MaxSerialStepIn
-			&& SerialInstance
-			&& SerialInstance.available())
+		UartReader.Clear();
+		if (!Task::isEnabled())
 		{
-			const uint8_t value = SerialInstance.read();
-			if (value == MessageDefinition::MessageEnd)
-			{
-				// End of message detected.
-				return true;
-			}
-			else
-			{
-				InBuffer[InSize++] = value;
-				steps++;
-				if (InSize >= UartDefinitions::MessageSizeMax)
-				{
-					InSize = 0;
-				}
-			}
+			Task::enableDelayed(0);
 		}
-
-		return false;
 	}
 
 #if defined(DEBUG_LOG)
 public:
 	void LogMessagePreAndAfterEncoding(const uint8_t header, const uint8_t payloadSize)
 	{
-		uint8_t OutMessage[64];
+		uint8_t OutMessage[256]{};
 
 		const uint8_t messageSize = MessageDefinition::GetMessageSize(payloadSize);
 		OutMessage[(uint8_t)MessageDefinition::FieldIndexEnum::Header] = header;
 
+		Serial.println();
+		Serial.print("\t(payload ");
+		Serial.print(payloadSize);
+		Serial.println(" bytes)");
 		Serial.print("\tmessage: ");
 		for (uint8_t i = (uint8_t)MessageDefinition::FieldIndexEnum::Header; i < messageSize; i++)
 		{
 			Serial.print(OutMessage[i], DEC);
-			Serial.print(' ');
+			Serial.print(',');
 		}
 		Serial.println();
 		Codec.EncodeMessageAndCrcInPlace(OutMessage, messageSize);
@@ -316,9 +308,12 @@ public:
 		for (uint8_t i = 0; i < messageSize + 1; i++)
 		{
 			Serial.print(OutMessage[i], DEC);
-			Serial.print(' ');
+			Serial.print(',');
 		}
 		Serial.println();
+		Serial.print("\t(");
+		Serial.print(((uint16_t)OutMessage[1] << 8) | OutMessage[0]);
+		Serial.println(")");
 	}
 
 

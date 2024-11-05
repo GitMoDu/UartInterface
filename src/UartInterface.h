@@ -17,6 +17,9 @@ namespace UartInterface
 		static constexpr uint32_t MessageSizeMax = 32;
 		static constexpr uint8_t MaxSerialStepOut = 16;
 		static constexpr uint8_t MaxSerialStepIn = 16;
+
+		static constexpr uint32_t ReadPollPeriodMillis = 50;
+		static constexpr uint32_t WriteTimeoutMillis = 10;
 	};
 
 	struct MessageDefinition
