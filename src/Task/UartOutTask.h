@@ -50,6 +50,11 @@ public:
 		, Listener(listener)
 	{}
 
+	const bool Setup() const
+	{
+		return OutBuffer != nullptr;
+	}
+
 	void Clear()
 	{
 		OutSize = 0;

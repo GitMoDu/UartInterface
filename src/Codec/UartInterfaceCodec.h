@@ -23,6 +23,11 @@ public:
 		: Crc(key, keySize)
 	{}
 
+	const bool Setup() const
+	{
+		return Crc.Setup();
+	}
+
 	const uint8_t EncodeMessageAndCrcInPlace(uint8_t* message, const uint8_t messageSize)
 	{
 		const uint8_t dataSize = messageSize - (uint8_t)MessageDefinition::FieldIndexEnum::Header;

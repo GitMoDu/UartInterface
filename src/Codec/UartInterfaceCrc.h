@@ -28,6 +28,11 @@ public:
 		, KeySize(keySize)
 	{}
 
+	const bool Setup() const
+	{
+		return Key != nullptr && KeySize > 0;
+	}
+
 	const uint16_t GetCrc(const uint8_t* data, const uint8_t dataSize)
 	{
 		Hasher.begin();

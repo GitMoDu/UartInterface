@@ -63,6 +63,11 @@ public:
 		, Listener(listener)
 	{}
 
+	const bool Setup() const
+	{
+		return Codec.Setup() && UartWriter.Setup();
+	}
+
 	void Start()
 	{
 		UartWriter.Clear();
