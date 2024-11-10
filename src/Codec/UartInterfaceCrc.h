@@ -4,12 +4,16 @@
 #include <Fletcher16.h>
 
 /// <summary>
+/// Keyed CRC based on Fletcher16 CRC.
 /// Depends on Fletcher16 (https://github.com/RobTillaart/Fletcher).
 /// </summary>
 class UartInterfaceCrc
 {
 public:
-	static constexpr uint8_t CrcSize = 2;// sizeof(uint16_t);
+	/// <summary>
+	/// Fletcher16 sizeof(uint16_t).
+	/// </summary>
+	static constexpr uint8_t CrcSize = 2;
 
 private:
 	Fletcher16 Hasher{};
