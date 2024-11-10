@@ -11,15 +11,23 @@
 
 namespace UartInterface
 {
-	struct ExampleUartDefinitions
+	template<uint32_t baudrate = 115200,
+		uint32_t messageSizeMax = 64,
+		uint8_t maxSerialStepOut = 32,
+		uint8_t maxSerialStepIn = 32,
+		uint32_t writeTimeoutMillis = 10,
+		uint32_t readTimeoutMillis = 10,
+		uint32_t pollPeriodMillis = 50>
+	struct TemplateUartDefinitions
 	{
-		static const uint32_t Baudrate = 115200;
-		static constexpr uint32_t MessageSizeMax = 32;
-		static constexpr uint8_t MaxSerialStepOut = 16;
-		static constexpr uint8_t MaxSerialStepIn = 16;
+		static constexpr uint32_t Baudrate = baudrate;
+		static constexpr uint32_t MessageSizeMax = messageSizeMax;
+		static constexpr uint8_t MaxSerialStepOut = maxSerialStepOut;
+		static constexpr uint8_t MaxSerialStepIn = maxSerialStepIn;
 
-		static constexpr uint32_t ReadPollPeriodMillis = 50;
-		static constexpr uint32_t WriteTimeoutMillis = 10;
+		static constexpr uint32_t WriteTimeoutMillis = writeTimeoutMillis;
+		static constexpr uint32_t ReadTimeoutMillis = readTimeoutMillis;
+		static constexpr uint32_t PollPeriodMillis = pollPeriodMillis;
 	};
 
 	struct MessageDefinition

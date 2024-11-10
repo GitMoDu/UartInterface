@@ -13,11 +13,9 @@
 /// </summary>
 /// <typeparam name="SerialType"></typeparam>
 /// <typeparam name="MaxSerialStepOut"></typeparam>
-/// <typeparam name="MessageSizeMax"></typeparam>
 template<typename SerialType,
 	uint8_t MaxSerialStepOut,
-	uint8_t MessageSizeMax,
-	uint32_t WriteTimeoutMillis = 20>
+	uint32_t WriteTimeoutMillis>
 class UartOutTask : private TS::Task
 {
 private:
@@ -37,6 +35,7 @@ private:
 private:
 	SerialType& SerialInstance;
 	uint8_t* OutBuffer;
+	UartInterfaceListener* Listener;
 
 private:
 	uint32_t OutStart = 0;
@@ -44,10 +43,11 @@ private:
 	uint8_t OutIndex = 0;
 
 public:
-	UartOutTask(TS::Scheduler& scheduler, SerialType& serialInstance, uint8_t* outBuffer)
+	UartOutTask(TS::Scheduler& scheduler, SerialType& serialInstance, uint8_t* outBuffer, UartInterfaceListener* listener)
 		: Task(TASK_IMMEDIATE, TASK_FOREVER, &scheduler, false)
 		, SerialInstance(serialInstance)
 		, OutBuffer(outBuffer)
+		, Listener(listener)
 	{}
 
 	void Clear()
@@ -75,13 +75,12 @@ public:
 
 	const bool CanSend() const
 	{
-		return SendState == StateEnum::NotSending;
+		return SendState == StateEnum::NotSending && SerialInstance.availableForWrite() >= MaxSerialStepOut;
 	}
 
 	const bool SendMessage(const uint8_t messageSize)
 	{
 		if (!CanSend()
-			|| messageSize > MessageSizeMax
 			|| messageSize < MessageDefinition::MessageSizeMin)
 		{
 			return false;
@@ -108,55 +107,63 @@ public:
 			return true;
 		}
 
-		const bool writeTimeout = (millis() - OutStart) > WriteTimeoutMillis;
-		uint8_t steps = 0;
+		const bool timedOut = (millis() - OutStart) >= WriteTimeoutMillis;
 
 		switch (SendState)
 		{
 		case StateEnum::SendingStartDelimiter:
-			if (!SerialInstance || writeTimeout)
+			if (!SerialInstance || timedOut)
 			{
 				SendState = StateEnum::NotSending;
+				if (timedOut && Listener != nullptr)
+				{
+					Listener->OnUartError(UartInterfaceListener::UartErrorEnum::TxTimeout);
+				}
 			}
-			else if (SerialInstance.availableForWrite())
+			else if (SerialInstance.availableForWrite() > MessageDefinition::MessageSizeMin)
 			{
 				SerialInstance.write((uint8_t)(MessageDefinition::MessageEnd));
 				SendState = StateEnum::SendingData;
 			}
 			break;
 		case StateEnum::SendingData:
-			if (!SerialInstance || writeTimeout)
+			if (OutIndex < OutSize)
 			{
-				SendState = StateEnum::NotSending;
-			}
-			else
-			{
-				while (OutIndex < OutSize
-					&& steps < MaxSerialStepOut
-					&& SerialInstance.availableForWrite())
+				if (!SerialInstance || timedOut)
 				{
-					SerialInstance.write(OutBuffer[OutIndex++]);
-
+					SendState = StateEnum::NotSending;
+					if (timedOut && Listener != nullptr)
+					{
+						Listener->OnUartError(UartInterfaceListener::UartErrorEnum::TxTimeout);
+					}
+					break;
+				}
+				else
+				{
+					OutIndex += PushOut();
 					if (OutIndex >= OutSize)
 					{
-						OutSize = 0;
-						OutIndex = 0;
 						SendState = StateEnum::SendingEndDelimiter;
 						break;
 					}
-					else
-					{
-						steps++;
-					}
 				}
+			}
+			else
+			{
+				SendState = StateEnum::SendingEndDelimiter;
 			}
 			break;
 		case StateEnum::SendingEndDelimiter:
-			if (!SerialInstance || writeTimeout)
+			if (!SerialInstance || timedOut)
 			{
 				SendState = StateEnum::NotSending;
+				if (timedOut && Listener != nullptr)
+				{
+					Listener->OnUartError(UartInterfaceListener::UartErrorEnum::TxTimeout);
+				}
 			}
-			else if (SerialInstance.availableForWrite())
+			else if (SerialInstance
+				&& SerialInstance.availableForWrite())
 			{
 				SerialInstance.write((uint8_t)(MessageDefinition::MessageEnd));
 				SendState = StateEnum::NotSending;
@@ -169,6 +176,30 @@ public:
 		}
 
 		return true;
+	}
+
+private:
+	const uint8_t PushOut()
+	{
+		uint8_t size = OutSize - OutIndex;
+
+		if (size > MaxSerialStepOut)
+		{
+			size = MaxSerialStepOut;
+		}
+
+		const uint8_t available = SerialInstance.availableForWrite();
+		if (size > available)
+		{
+			size = available;
+		}
+
+		if (size > 0)
+		{
+			SerialInstance.write(&OutBuffer[OutIndex], size);
+		}
+
+		return size;
 	}
 };
 #endif

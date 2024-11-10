@@ -9,43 +9,44 @@
 #include <UartInterface.h>
 
 #include "UartOutTask.h"
-#include "UartIn.h"
 
 #include "../Codec/UartInterfaceCodec.h"
 
-
 template<typename SerialType,
-	typename UartDefinitions = UartInterface::ExampleUartDefinitions>
-class UartInterfaceTask : private TS::Task
+	typename UartDefinitions = UartInterface::TemplateUartDefinitions<>>
+	class UartInterfaceTask : private TS::Task
 {
 private:
 	using MessageDefinition = UartInterface::MessageDefinition;
-
-	static constexpr uint32_t CheckPeriodMillis = 10;
 
 private:
 	enum class StateEnum
 	{
 		Disabled,
 		WaitingForSerial,
-		WaitingForMessages,
+		ActiveWaitPoll,
+		PassiveWaitPoll,
+		ReadWaitingForStart,
+		ReadWaitingForData,
+		ReadingData,
 		DeliveringMessage
 	};
 
 private:
-	UartOutTask<SerialType, UartDefinitions::MaxSerialStepOut, UartDefinitions::MessageSizeMax, UartDefinitions::WriteTimeoutMillis> UartWriter;
-	UartIn<UartDefinitions::MessageSizeMax> UartReader;
+	UartOutTask<SerialType, UartDefinitions::MaxSerialStepOut, UartDefinitions::WriteTimeoutMillis> UartWriter;
+
+	UartInterfaceCodec<UartDefinitions::MessageSizeMax> Codec;
 
 private:
-	UartInterfaceCodec<UartDefinitions::MessageSizeMax> Codec;
 	SerialType& SerialInstance;
 	UartInterfaceListener* Listener;
-
-	Print* SerialLogger;
 
 private:
 	uint8_t OutBuffer[UartDefinitions::MessageSizeMax]{};
 	uint8_t InBuffer[UartDefinitions::MessageSizeMax]{};
+
+	uint32_t PollStart = 0;
+	uint32_t LastIn = 0;
 	uint8_t InSize = 0;
 
 private:
@@ -54,73 +55,23 @@ private:
 public:
 	UartInterfaceTask(TS::Scheduler& scheduler, SerialType& serialInstance, UartInterfaceListener* listener,
 		const uint8_t* key,
-		const uint8_t keySize,
-		Print* serialLogger = nullptr)
+		const uint8_t keySize)
 		: TS::Task(TASK_IMMEDIATE, TASK_FOREVER, &scheduler, false)
-		, UartWriter(scheduler, serialInstance, OutBuffer)
-		, UartReader(InBuffer)
+		, UartWriter(scheduler, serialInstance, OutBuffer, listener)
 		, Codec(key, keySize)
 		, SerialInstance(serialInstance)
 		, Listener(listener)
-		, SerialLogger(serialLogger)
 	{}
 
 	void Start()
 	{
-		Clear();
+		UartWriter.Clear();
 		State = StateEnum::WaitingForSerial;
 
+		SerialInstance.end();
 		SerialInstance.begin(UartDefinitions::Baudrate);
 
-		Task::enableDelayed(0);
-	}
-
-	const bool CanSendMessage() const
-	{
-		switch (State)
-		{
-		case StateEnum::WaitingForSerial:
-		case StateEnum::Disabled:
-			return false;
-		default:
-			break;
-		}
-
-		return UartWriter.CanSend();
-	}
-
-	const bool IsSerialConnected() const
-	{
-		return SerialInstance;
-	}
-
-	const bool SendMessage(const uint8_t header)
-	{
-		if (!CanSendMessage())
-		{
-			return false;
-		}
-
-		OutBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Header] = header;
-
-		const uint8_t outSize = Codec.EncodeMessageAndCrcInPlace(OutBuffer, MessageDefinition::GetMessageSize(0));
-
-		return UartWriter.SendMessage(outSize);
-	}
-
-	const bool SendMessage(const uint8_t header, const uint8_t* payload, const uint8_t payloadSize)
-	{
-		if (!CanSendMessage() || payload == nullptr)
-		{
-			return false;
-		}
-
-		OutBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Header] = header;
-		memcpy(&OutBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Payload], payload, payloadSize);
-
-		const uint8_t outSize = Codec.EncodeMessageAndCrcInPlace(OutBuffer, MessageDefinition::GetMessageSize(payloadSize));
-
-		return UartWriter.SendMessage(outSize);
+		TS::Task::enableDelayed(0);
 	}
 
 	void Stop()
@@ -139,8 +90,52 @@ public:
 		}
 
 		State = StateEnum::Disabled;
-		Clear();
-		Task::disable();
+		TS::Task::disable();
+	}
+
+	const bool CanSendMessage() const
+	{
+		switch (State)
+		{
+		case StateEnum::Disabled:
+		case StateEnum::WaitingForSerial:
+			return false;
+		default:
+			break;
+		}
+
+		return UartWriter.CanSend();
+	}
+
+	const bool IsSerialConnected() const
+	{
+		return SerialInstance;
+	}
+
+	const bool SendMessage(const uint8_t header)
+	{
+		OutBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Header] = header;
+
+		const uint8_t outSize = Codec.EncodeMessageAndCrcInPlace(OutBuffer, MessageDefinition::GetMessageSize(0));
+
+		return UartWriter.SendMessage(outSize);
+	}
+
+	const bool SendMessage(const uint8_t header, const uint8_t* payload, const uint8_t payloadSize)
+	{
+		if (!CanSendMessage()
+			|| payloadSize > MessageDefinition::GetPayloadSize(UartDefinitions::MessageSizeMax)
+			|| payload == nullptr)
+		{
+			return false;
+		}
+
+		OutBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Header] = header;
+		memcpy(&OutBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Payload], payload, payloadSize);
+
+		const uint8_t outSize = Codec.EncodeMessageAndCrcInPlace(OutBuffer, MessageDefinition::GetMessageSize(payloadSize));
+
+		return UartWriter.SendMessage(outSize);
 	}
 
 	void OnSerialEvent()
@@ -148,26 +143,12 @@ public:
 		switch (State)
 		{
 		case StateEnum::WaitingForSerial:
-			if (Task::isEnabled())
-			{
-				if (Task::getInterval() != 0)
-				{
-					Task::delay(0);
-				}
-			}
-			else
-			{
-				Task::enableDelayed(0);
-			}
+			TS::Task::enableDelayed(0);
 			break;
-		case StateEnum::WaitingForMessages:
-			if (!Task::isEnabled())
-			{
-				Task::enableDelayed(0);
-			}
+		case StateEnum::PassiveWaitPoll:
+			State = StateEnum::ActiveWaitPoll;
+			TS::Task::enableDelayed(0);
 			break;
-		case StateEnum::DeliveringMessage:
-		case StateEnum::Disabled:
 		default:
 			break;
 		}
@@ -175,20 +156,16 @@ public:
 
 	bool Callback() final
 	{
-		uint8_t steps = 0;
-
 		switch (State)
 		{
-		case StateEnum::Disabled:
-			Task::disable();
-			break;
 		case StateEnum::WaitingForSerial:
+			TS::Task::delay(UartDefinitions::PollPeriodMillis);
 			if (SerialInstance)
 			{
 				if (UartWriter.Start())
 				{
-					State = StateEnum::WaitingForMessages;
-					Task::delay(0);
+					State = StateEnum::PassiveWaitPoll;
+					TS::Task::delay(0);
 					if (Listener != nullptr)
 					{
 						Listener->OnUartStateChange(true);
@@ -196,20 +173,37 @@ public:
 				}
 				else
 				{
-					Task::delay(CheckPeriodMillis);
+					if (Listener != nullptr)
+					{
+						Listener->OnUartError(UartInterfaceListener::UartErrorEnum::SetupError);
+					}
 				}
 			}
-			else
-			{
-				Task::delay(CheckPeriodMillis);
-			}
 			break;
-		case StateEnum::WaitingForMessages:
+		case StateEnum::PassiveWaitPoll:
+			TS::Task::delay(0);
 			if (!SerialInstance)
 			{
 				State = StateEnum::WaitingForSerial;
-				Task::delay(0);
-				Clear();
+				if (Listener != nullptr)
+				{
+					Listener->OnUartStateChange(false);
+				}
+			}
+			else if (SerialInstance.available())
+			{
+				State = StateEnum::ActiveWaitPoll;
+			}
+			else if (millis() - PollStart > UartDefinitions::ReadTimeoutMillis)
+			{
+				TS::Task::delay(UartDefinitions::PollPeriodMillis);
+			}
+			break;
+		case StateEnum::ActiveWaitPoll:
+			TS::Task::delay(0);
+			if (!SerialInstance)
+			{
+				State = StateEnum::WaitingForSerial;
 				if (Listener != nullptr)
 				{
 					Listener->OnUartStateChange(false);
@@ -217,29 +211,166 @@ public:
 			}
 			else
 			{
-				Task::delay(0);
-				while (steps < UartDefinitions::MaxSerialStepIn
-					&& SerialInstance.available())
+				PollStart = millis();
+				State = StateEnum::ReadWaitingForStart;
+			}
+			break;
+		case StateEnum::ReadWaitingForStart:
+			TS::Task::delay(0);
+			if (!SerialInstance)
+			{
+				State = StateEnum::WaitingForSerial;
+				if (Listener != nullptr)
 				{
-					InSize = UartReader.ParseIn(SerialInstance.read());
-					if (InSize > 0) // Delimited packet detected.
+					Listener->OnUartStateChange(false);
+				}
+			}
+			else
+			{
+				PullUntilMessageStart();
+			}
+			break;
+		case StateEnum::ReadWaitingForData:
+			TS::Task::delay(0);
+			if (!SerialInstance)
+			{
+				State = StateEnum::WaitingForSerial;
+				if (Listener != nullptr)
+				{
+					Listener->OnUartStateChange(false);
+				}
+			}
+			else
+			{
+				PullUntilDataStart();
+			}
+			break;
+		case StateEnum::ReadingData:
+			TS::Task::delay(0);
+			PullDataIn();
+			break;
+		case StateEnum::DeliveringMessage:
+			TS::Task::delay(0);
+			DeliverMessage();
+			State = StateEnum::PassiveWaitPoll;
+			PollStart = millis();
+			break;
+		case StateEnum::Disabled:
+		default:
+			TS::Task::disable();
+			break;
+		}
+
+		return true;
+	}
+
+private:
+	void PullUntilMessageStart()
+	{
+		if (millis() - PollStart > UartDefinitions::ReadTimeoutMillis)
+		{
+			State = StateEnum::PassiveWaitPoll;
+		}
+		else if (SerialInstance.available()
+			&& SerialInstance.read() == MessageDefinition::MessageEnd)
+		{
+			InSize = 0;
+			State = StateEnum::ReadWaitingForData;
+			LastIn = millis();
+		}
+	}
+
+	void PullUntilDataStart()
+	{
+		if (millis() - LastIn > UartDefinitions::ReadTimeoutMillis)
+		{
+			State = StateEnum::PassiveWaitPoll;
+			PollStart = millis();
+			if (Listener != nullptr)
+			{
+				Listener->OnUartError(UartInterfaceListener::UartErrorEnum::RxStartTimeout);
+			}
+		}
+		else if (SerialInstance.available())
+		{
+			if (SerialInstance.peek() == MessageDefinition::MessageEnd)
+			{
+				SerialInstance.read(); // Repeated delimiter detected.
+			}
+			else
+			{
+				State = StateEnum::ReadingData;
+				InSize = 0;
+				InBuffer[InSize++] = SerialInstance.read();
+				LastIn = millis();
+			}
+		}
+	}
+
+	void PullDataIn()
+	{
+		uint8_t readSteps = 0;
+		while (readSteps <= UartDefinitions::MaxSerialStepIn)
+		{
+			readSteps++;
+			if (!SerialInstance)
+			{
+				State = StateEnum::WaitingForSerial;
+				if (Listener != nullptr)
+				{
+					Listener->OnUartStateChange(false);
+				}
+				break;
+			}
+			else if (millis() - LastIn > UartDefinitions::ReadTimeoutMillis)
+			{
+				State = StateEnum::PassiveWaitPoll;
+				PollStart = millis();
+				if (Listener != nullptr)
+				{
+					Listener->OnUartError(UartInterfaceListener::UartErrorEnum::RxTimeout);
+				}
+				break;
+			}
+			else if (SerialInstance.available())
+			{
+				if (SerialInstance.peek() == MessageDefinition::MessageEnd)
+				{
+					SerialInstance.read();
+					if (InSize > MessageDefinition::MessageSizeMin)
 					{
 						State = StateEnum::DeliveringMessage;
-						return true;
+						break;
 					}
 					else
 					{
-						steps++;
+						State = StateEnum::PassiveWaitPoll;
+						PollStart = millis();
+						break;
 					}
 				}
-
-				if (!SerialInstance.available())
+				else
 				{
-					Task::delay(UartDefinitions::ReadPollPeriodMillis);
+					InBuffer[InSize++] = SerialInstance.read();
+					if (InSize >= UartDefinitions::MessageSizeMax)
+					{
+						State = StateEnum::PassiveWaitPoll;
+						PollStart = millis();
+						break;
+					}
 				}
 			}
-			break;
-		case StateEnum::DeliveringMessage:
+			else
+			{
+				break;
+			}
+		}
+	}
+
+	void DeliverMessage()
+	{
+		if (InSize > MessageDefinition::MessageSizeMin)
+		{
 			if (Codec.DecodeMessageInPlaceIfValid(InBuffer, InSize))
 			{
 				if (Listener != nullptr)
@@ -255,106 +386,12 @@ public:
 					}
 				}
 			}
-			else
+			else if (Listener != nullptr)
 			{
-				// On Rx fail.
-				if (SerialLogger != nullptr) {
-					SerialLogger->println(F("Rx fail"));
-				}
+				Listener->OnUartError(UartInterfaceListener::UartErrorEnum::RxRejected);
 			}
-			State = StateEnum::WaitingForMessages;
-			Task::delay(0);
-			break;
-		default:
-			break;
-		}
-
-		return true;
-	}
-
-	void Clear()
-	{
-		InSize = 0;
-		UartWriter.Clear();
-		UartReader.Clear();
-		if (!Task::isEnabled())
-		{
-			Task::enableDelayed(0);
 		}
 	}
-
-#if defined(DEBUG_LOG)
-public:
-	void LogMessagePreAndAfterEncoding(const uint8_t header, const uint8_t payloadSize)
-	{
-		uint8_t OutMessage[256]{};
-
-		const uint8_t messageSize = MessageDefinition::GetMessageSize(payloadSize);
-		OutMessage[(uint8_t)MessageDefinition::FieldIndexEnum::Header] = header;
-
-		Serial.println();
-		Serial.print("\t(payload ");
-		Serial.print(payloadSize);
-		Serial.println(" bytes)");
-		Serial.print("\tmessage: ");
-		for (uint8_t i = (uint8_t)MessageDefinition::FieldIndexEnum::Header; i < messageSize; i++)
-		{
-			Serial.print(OutMessage[i], DEC);
-			Serial.print(',');
-		}
-		Serial.println();
-		Codec.EncodeMessageAndCrcInPlace(OutMessage, messageSize);
-		Serial.print("\tencoded: ");
-		for (uint8_t i = 0; i < messageSize + 1; i++)
-		{
-			Serial.print(OutMessage[i], DEC);
-			Serial.print(',');
-		}
-		Serial.println();
-		Serial.print("\t(");
-		Serial.print(((uint16_t)OutMessage[1] << 8) | OutMessage[0]);
-		Serial.println(")");
-	}
-
-
-	const bool UnitTest()
-	{
-		uint8_t OutMessage[64];
-
-		uint32_t start = 0;
-		uint32_t end = 0;
-
-		OutMessage[(uint8_t)MessageDefinition::FieldIndexEnum::Header] = 1;
-
-		start = micros();
-		const uint8_t outSize = Codec.EncodeMessageAndCrcInPlace(OutMessage, MessageDefinition::GetMessageSize(40));
-		end = micros();
-
-		Serial.print(F("Encode "));
-		Serial.print(MessageDefinition::GetMessageSize(40));
-		Serial.print(F(" bytes took "));
-		Serial.print(end - start);
-		Serial.println(F(" us"));
-
-		if (outSize > 2)
-		{
-			memcpy(InBuffer, OutMessage, (size_t)outSize);
-
-			start = micros();
-			const bool valid = Codec.DecodeMessageInPlaceIfValid(InBuffer, outSize);
-			end = micros();
-
-			Serial.print(F("Decode "));
-			Serial.print(MessageDefinition::GetMessageSize(40));
-			Serial.print(F(" bytes took "));
-			Serial.print(end - start);
-			Serial.println(F(" us"));
-
-			return valid;
-		}
-
-		return false;
-	}
-#endif
 };
+
 #endif
