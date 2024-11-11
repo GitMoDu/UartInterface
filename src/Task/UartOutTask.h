@@ -122,7 +122,7 @@ public:
 				SendState = StateEnum::NotSending;
 				if (timedOut && Listener != nullptr)
 				{
-					Listener->OnUartError(UartInterfaceListener::UartErrorEnum::TxTimeout);
+					Listener->OnUartTxError(UartInterfaceListener::TxErrorEnum::StartTimeout);
 				}
 			}
 			else if (SerialInstance.availableForWrite() > MessageDefinition::MessageSizeMin)
@@ -139,7 +139,7 @@ public:
 					SendState = StateEnum::NotSending;
 					if (timedOut && Listener != nullptr)
 					{
-						Listener->OnUartError(UartInterfaceListener::UartErrorEnum::TxTimeout);
+						Listener->OnUartTxError(UartInterfaceListener::TxErrorEnum::DataTimeout);
 					}
 					break;
 				}
@@ -164,7 +164,7 @@ public:
 				SendState = StateEnum::NotSending;
 				if (timedOut && Listener != nullptr)
 				{
-					Listener->OnUartError(UartInterfaceListener::UartErrorEnum::TxTimeout);
+					Listener->OnUartTxError(UartInterfaceListener::TxErrorEnum::EndTimeout);
 				}
 			}
 			else if (SerialInstance
@@ -172,6 +172,10 @@ public:
 			{
 				SerialInstance.write((uint8_t)(MessageDefinition::MessageEnd));
 				SendState = StateEnum::NotSending;
+				if (Listener != nullptr)
+				{
+					Listener->OnUartTx();
+				}
 			}
 			break;
 		case StateEnum::NotSending:

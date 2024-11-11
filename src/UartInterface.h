@@ -3,7 +3,6 @@
 #ifndef _UART_INTERFACE_h
 #define _UART_INTERFACE_h
 
-#include <stdint.h>
 #include <UartInterfaceListener.h>
 
 #include "Codec/UartInterfaceCrc.h"

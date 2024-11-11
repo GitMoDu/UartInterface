@@ -177,13 +177,6 @@ public:
 						Listener->OnUartStateChange(true);
 					}
 				}
-				else
-				{
-					if (Listener != nullptr)
-					{
-						Listener->OnUartError(UartInterfaceListener::UartErrorEnum::SetupError);
-					}
-				}
 			}
 			break;
 		case StateEnum::PassiveWaitPoll:
@@ -299,7 +292,7 @@ private:
 			PollStart = millis();
 			if (Listener != nullptr)
 			{
-				Listener->OnUartError(UartInterfaceListener::UartErrorEnum::RxStartTimeout);
+				Listener->OnUartRxError(UartInterfaceListener::RxErrorEnum::StartTimeout);
 			}
 		}
 		else if (SerialInstance.available())
@@ -339,7 +332,7 @@ private:
 				PollStart = millis();
 				if (Listener != nullptr)
 				{
-					Listener->OnUartError(UartInterfaceListener::UartErrorEnum::RxTimeout);
+					Listener->OnUartRxError(UartInterfaceListener::RxErrorEnum::EndTimeout);
 				}
 				break;
 			}
@@ -367,6 +360,10 @@ private:
 					{
 						State = StateEnum::PassiveWaitPoll;
 						PollStart = millis();
+						if (Listener != nullptr)
+						{
+							Listener->OnUartRxError(UartInterfaceListener::RxErrorEnum::TooLong);
+						}
 						break;
 					}
 				}
@@ -388,19 +385,23 @@ private:
 				{
 					if (MessageDefinition::GetPayloadSize(InSize - 1) > 0)
 					{
-						Listener->OnMessageReceived(InBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Header],
+						Listener->OnUartRx(InBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Header],
 							&InBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Payload], MessageDefinition::GetPayloadSize(InSize - 1));
 					}
 					else
 					{
-						Listener->OnMessageReceived(InBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Header]);
+						Listener->OnUartRx(InBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Header]);
 					}
 				}
 			}
 			else if (Listener != nullptr)
 			{
-				Listener->OnUartError(UartInterfaceListener::UartErrorEnum::RxRejected);
+				Listener->OnUartRxError(UartInterfaceListener::RxErrorEnum::Crc);
 			}
+		}
+		else if (InSize > 0 && Listener != nullptr)
+		{
+			Listener->OnUartRxError(UartInterfaceListener::RxErrorEnum::TooShort);
 		}
 	}
 };
