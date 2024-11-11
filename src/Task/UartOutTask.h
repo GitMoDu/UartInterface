@@ -86,7 +86,7 @@ public:
 	const bool SendMessage(const uint8_t messageSize)
 	{
 		if (!CanSend()
-			|| messageSize < MessageDefinition::MessageSizeMin)
+			|| messageSize < MessageDefinition::SizeMin)
 		{
 			return false;
 		}
@@ -125,9 +125,9 @@ public:
 					Listener->OnUartTxError(UartInterfaceListener::TxErrorEnum::StartTimeout);
 				}
 			}
-			else if (SerialInstance.availableForWrite() > MessageDefinition::MessageSizeMin)
+			else if (SerialInstance.availableForWrite() > MessageDefinition::SizeMin)
 			{
-				SerialInstance.write((uint8_t)(MessageDefinition::MessageEnd));
+				SerialInstance.write((uint8_t)(MessageDefinition::Delimiter));
 				SendState = StateEnum::SendingData;
 			}
 			break;
@@ -170,7 +170,7 @@ public:
 			else if (SerialInstance
 				&& SerialInstance.availableForWrite())
 			{
-				SerialInstance.write((uint8_t)(MessageDefinition::MessageEnd));
+				SerialInstance.write((uint8_t)(MessageDefinition::Delimiter));
 				SendState = StateEnum::NotSending;
 				if (Listener != nullptr)
 				{

@@ -40,8 +40,8 @@ namespace UartInterface
 		};
 
 		static constexpr uint8_t CrcSize = UartInterfaceCrc::CrcSize;
-		static constexpr uint8_t MessageEnd = UartCobsCodec::MessageEnd; // COBS delimeter.
-		static constexpr uint8_t MessageSizeMin = (uint8_t)FieldIndexEnum::Payload;
+		static constexpr uint8_t Delimiter = UartCobsCodec::Delimiter;
+		static constexpr uint8_t SizeMin = (uint8_t)FieldIndexEnum::Payload;
 
 		static constexpr uint8_t GetPayloadSize(const uint8_t messageSize)
 		{

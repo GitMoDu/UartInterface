@@ -5,11 +5,11 @@
 
 namespace UartCobsCodec
 {
-	static constexpr uint8_t MessageEnd = 0;
+	static constexpr uint8_t Delimiter = 0;
 
 	static const uint8_t Encode(const uint8_t* buffer, uint8_t* encodedBuffer, const uint8_t size)
 	{
-		static constexpr uint8_t endReplacement = MessageEnd + 1;
+		static constexpr uint8_t endReplacement = Delimiter + 1;
 
 		uint8_t read_index = 0;
 		uint8_t write_index = 1;
@@ -18,7 +18,7 @@ namespace UartCobsCodec
 
 		while (read_index < size)
 		{
-			if (buffer[read_index] == MessageEnd)
+			if (buffer[read_index] == Delimiter)
 			{
 				encodedBuffer[code_index] = code;
 				code = endReplacement;
@@ -46,7 +46,7 @@ namespace UartCobsCodec
 
 	static const uint8_t Decode(const uint8_t* buffer, uint8_t* decodedBuffer, const uint8_t size)
 	{
-		static constexpr uint8_t endReplacement = MessageEnd + 1;
+		static constexpr uint8_t endReplacement = Delimiter + 1;
 
 		if (size == 0)
 		{
@@ -76,7 +76,7 @@ namespace UartCobsCodec
 
 			if (code != 0xFF && read_index != size)
 			{
-				decodedBuffer[write_index++] = MessageEnd;
+				decodedBuffer[write_index++] = Delimiter;
 			}
 		}
 

@@ -276,7 +276,7 @@ private:
 			State = StateEnum::PassiveWaitPoll;
 		}
 		else if (SerialInstance.available()
-			&& SerialInstance.read() == MessageDefinition::MessageEnd)
+			&& SerialInstance.read() == MessageDefinition::Delimiter)
 		{
 			InSize = 0;
 			State = StateEnum::ReadWaitingForData;
@@ -297,7 +297,7 @@ private:
 		}
 		else if (SerialInstance.available())
 		{
-			if (SerialInstance.peek() == MessageDefinition::MessageEnd)
+			if (SerialInstance.peek() == MessageDefinition::Delimiter)
 			{
 				SerialInstance.read(); // Repeated delimiter detected.
 			}
@@ -338,10 +338,10 @@ private:
 			}
 			else if (SerialInstance.available())
 			{
-				if (SerialInstance.peek() == MessageDefinition::MessageEnd)
+				if (SerialInstance.peek() == MessageDefinition::Delimiter)
 				{
 					SerialInstance.read();
-					if (InSize > MessageDefinition::MessageSizeMin)
+					if (InSize > MessageDefinition::SizeMin)
 					{
 						State = StateEnum::DeliveringMessage;
 						break;
@@ -377,7 +377,7 @@ private:
 
 	void DeliverMessage()
 	{
-		if (InSize > MessageDefinition::MessageSizeMin)
+		if (InSize > MessageDefinition::SizeMin)
 		{
 			if (Codec.DecodeMessageInPlaceIfValid(InBuffer, InSize))
 			{
