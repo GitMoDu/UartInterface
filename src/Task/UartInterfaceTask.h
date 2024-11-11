@@ -150,10 +150,10 @@ public:
 		case StateEnum::PassiveWaitPoll:
 			State = StateEnum::ActiveWaitPoll;
 			PollStart = millis();
-			TS::Task::delay(0);
+			TS::Task::delay(TASK_IMMEDIATE);
 			break;
 		case StateEnum::WaitingForSerial:
-			TS::Task::enableDelayed(0);
+			TS::Task::enableDelayed(TASK_IMMEDIATE);
 			break;
 		default:
 			break;
@@ -171,7 +171,7 @@ public:
 				if (UartWriter.Start())
 				{
 					State = StateEnum::PassiveWaitPoll;
-					TS::Task::delay(0);
+					TS::Task::delay(TASK_IMMEDIATE);
 					if (Listener != nullptr)
 					{
 						Listener->OnUartStateChange(true);
@@ -187,7 +187,7 @@ public:
 			}
 			break;
 		case StateEnum::PassiveWaitPoll:
-			TS::Task::delay(0);
+			TS::Task::delay(TASK_IMMEDIATE);
 			if (!SerialInstance)
 			{
 				State = StateEnum::WaitingForSerial;
@@ -207,7 +207,7 @@ public:
 			}
 			break;
 		case StateEnum::ActiveWaitPoll:
-			TS::Task::delay(0);
+			TS::Task::delay(TASK_IMMEDIATE);
 			if (!SerialInstance)
 			{
 				State = StateEnum::WaitingForSerial;
@@ -227,7 +227,7 @@ public:
 			}
 			break;
 		case StateEnum::ReadWaitingForStart:
-			TS::Task::delay(0);
+			TS::Task::delay(TASK_IMMEDIATE);
 			if (!SerialInstance)
 			{
 				State = StateEnum::WaitingForSerial;
@@ -257,11 +257,11 @@ public:
 			}
 			break;
 		case StateEnum::ReadingData:
-			TS::Task::delay(0);
+			TS::Task::delay(TASK_IMMEDIATE);
 			PullDataIn();
 			break;
 		case StateEnum::DeliveringMessage:
-			TS::Task::delay(0);
+			TS::Task::delay(TASK_IMMEDIATE);
 			DeliverMessage();
 			State = StateEnum::PassiveWaitPoll;
 			PollStart = millis();
