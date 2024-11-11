@@ -147,11 +147,12 @@ public:
 	{
 		switch (State)
 		{
-		case StateEnum::WaitingForSerial:
-			TS::Task::enableDelayed(0);
-			break;
 		case StateEnum::PassiveWaitPoll:
 			State = StateEnum::ActiveWaitPoll;
+			PollStart = millis();
+			TS::Task::delay(0);
+			break;
+		case StateEnum::WaitingForSerial:
 			TS::Task::enableDelayed(0);
 			break;
 		default:
@@ -198,6 +199,7 @@ public:
 			else if (SerialInstance.available())
 			{
 				State = StateEnum::ActiveWaitPoll;
+				PollStart = millis();
 			}
 			else if (millis() - PollStart > UartDefinitions::ReadTimeoutMillis)
 			{
@@ -214,10 +216,14 @@ public:
 					Listener->OnUartStateChange(false);
 				}
 			}
-			else
+			else if (SerialInstance.available())
 			{
 				PollStart = millis();
 				State = StateEnum::ReadWaitingForStart;
+			}
+			else if (millis() - PollStart > UartDefinitions::ReadTimeoutMillis)
+			{
+				State = StateEnum::PassiveWaitPoll;
 			}
 			break;
 		case StateEnum::ReadWaitingForStart:
