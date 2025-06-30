@@ -9,6 +9,7 @@ namespace UartCobsCodec
 	{
 		static constexpr uint8_t Delimiter = 0;
 		static constexpr uint8_t EndReplacement = Delimiter + 1;
+		static constexpr uint8_t MaxCode = 0xFF;
 	}
 
 	static constexpr uint8_t DataSizeMax = UINT8_MAX - 2;
@@ -45,7 +46,7 @@ namespace UartCobsCodec
 				encodedBuffer[write_index++] = buffer[read_index++];
 				code++;
 
-				if (code == 0xFF)
+				if (code == Codes::MaxCode)
 				{
 					encodedBuffer[code_index] = code;
 					code = Codes::EndReplacement;
@@ -61,19 +62,13 @@ namespace UartCobsCodec
 
 	static const uint8_t Decode(const uint8_t* buffer, uint8_t* decodedBuffer, const uint8_t size)
 	{
-		if (size == 0)
-		{
-			return 0;
-		}
-
 		uint8_t read_index = 0;
 		uint8_t write_index = 0;
-		uint8_t code = 0;
 		uint8_t i = 0;
 
 		while (read_index < size)
 		{
-			code = buffer[read_index];
+			const uint8_t code = buffer[read_index];
 
 			if (read_index + code > size && code != Codes::EndReplacement)
 			{
@@ -82,12 +77,18 @@ namespace UartCobsCodec
 
 			read_index++;
 
-			for (i = Codes::EndReplacement; i < code; i++)
+			// Optimized equivalent of 
+			// for (i = Codes::EndReplacement; i < code; i++)
+			//	decodedBuffer[write_index++] = buffer[read_index++];
+			const uint8_t chunk = code - Codes::EndReplacement;
+			if (chunk <= size - read_index)
 			{
-				decodedBuffer[write_index++] = buffer[read_index++];
+				memcpy(&decodedBuffer[write_index], &buffer[read_index], chunk);
+				write_index += chunk;
+				read_index += chunk;
 			}
 
-			if (code != 0xFF && read_index != size)
+			if (code != Codes::MaxCode && read_index != size)
 			{
 				decodedBuffer[write_index++] = Codes::Delimiter;
 			}
