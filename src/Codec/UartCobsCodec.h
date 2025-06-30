@@ -5,12 +5,27 @@
 
 namespace UartCobsCodec
 {
-	static constexpr uint8_t Delimiter = 0;
+	namespace Codes
+	{
+		static constexpr uint8_t Delimiter = 0;
+		static constexpr uint8_t EndReplacement = Delimiter + 1;
+	}
+
+	static constexpr uint8_t DataSizeMax = UINT8_MAX - 2;
+
+
+	static constexpr size_t GetBufferSize(const size_t dataSize)
+	{
+		return dataSize + 1;
+	}
+
+	static constexpr size_t GetDataSize(const size_t bufferSize)
+	{
+		return bufferSize - 1;
+	}
 
 	static const uint8_t Encode(const uint8_t* buffer, uint8_t* encodedBuffer, const uint8_t size)
 	{
-		static constexpr uint8_t endReplacement = Delimiter + 1;
-
 		uint8_t read_index = 0;
 		uint8_t write_index = 1;
 		uint8_t code_index = 0;
@@ -18,10 +33,10 @@ namespace UartCobsCodec
 
 		while (read_index < size)
 		{
-			if (buffer[read_index] == Delimiter)
+			if (buffer[read_index] == Codes::Delimiter)
 			{
 				encodedBuffer[code_index] = code;
-				code = endReplacement;
+				code = Codes::EndReplacement;
 				code_index = write_index++;
 				read_index++;
 			}
@@ -33,7 +48,7 @@ namespace UartCobsCodec
 				if (code == 0xFF)
 				{
 					encodedBuffer[code_index] = code;
-					code = endReplacement;
+					code = Codes::EndReplacement;
 					code_index = write_index++;
 				}
 			}
@@ -46,8 +61,6 @@ namespace UartCobsCodec
 
 	static const uint8_t Decode(const uint8_t* buffer, uint8_t* decodedBuffer, const uint8_t size)
 	{
-		static constexpr uint8_t endReplacement = Delimiter + 1;
-
 		if (size == 0)
 		{
 			return 0;
@@ -62,51 +75,30 @@ namespace UartCobsCodec
 		{
 			code = buffer[read_index];
 
-			if (read_index + code > size && code != endReplacement)
+			if (read_index + code > size && code != Codes::EndReplacement)
 			{
 				return 0;
 			}
 
 			read_index++;
 
-			for (i = endReplacement; i < code; i++)
+			for (i = Codes::EndReplacement; i < code; i++)
 			{
 				decodedBuffer[write_index++] = buffer[read_index++];
 			}
 
 			if (code != 0xFF && read_index != size)
 			{
-				decodedBuffer[write_index++] = Delimiter;
+				decodedBuffer[write_index++] = Codes::Delimiter;
 			}
 		}
 
 		return write_index;
 	}
-};
 
-template<const uint8_t MaxBufferSize = UINT8_MAX>
-class UartCobsInPlaceCodec
-{
-private:
-	uint8_t Copy[MaxBufferSize]{};
-
-public:
-	UartCobsInPlaceCodec()
-	{}
-
-public:
-	const uint8_t EncodeInPlace(uint8_t* buffer, const uint8_t size)
+	static const uint8_t DecodeInPlace(uint8_t* buffer, const uint8_t size)
 	{
-		memcpy(Copy, buffer, size);
-
-		return UartCobsCodec::Encode((const uint8_t*)Copy, buffer, size);
-	}
-
-	const uint8_t DecodeInPlace(uint8_t* buffer, const uint8_t size)
-	{
-		memcpy(Copy, buffer, size);
-
-		return UartCobsCodec::Decode((const uint8_t*)Copy, buffer, size);
+		return Decode(buffer, buffer, size);
 	}
 };
 

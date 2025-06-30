@@ -1,5 +1,3 @@
-// UartOutTask.h
-
 #ifndef _UART_OUT_TASK_h
 #define _UART_OUT_TASK_h
 

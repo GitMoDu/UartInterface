@@ -1,5 +1,3 @@
-// UartInterfaceTask.h
-
 #ifndef _UART_INTERFACE_TASK_INCLUDE_h
 #define _UART_INTERFACE_TASK_INCLUDE_h
 

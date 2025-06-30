@@ -1,5 +1,3 @@
-// UartInterface.h
-
 #ifndef _UART_INTERFACE_h
 #define _UART_INTERFACE_h
 
@@ -40,17 +38,18 @@ namespace UartInterface
 		};
 
 		static constexpr uint8_t CrcSize = UartInterfaceCrc::CrcSize;
-		static constexpr uint8_t Delimiter = UartCobsCodec::Delimiter;
+		static constexpr uint8_t Delimiter = UartCobsCodec::Codes::Delimiter;
 		static constexpr uint8_t SizeMin = (uint8_t)FieldIndexEnum::Payload;
+		static constexpr uint8_t PayloadSizeMax = UartCobsCodec::DataSizeMax - (uint8_t)FieldIndexEnum::Payload;
 
-		static constexpr uint8_t GetPayloadSize(const uint8_t messageSize)
+		static constexpr uint8_t GetPayloadSize(const size_t messageSize)
 		{
 			return ((messageSize >= (uint8_t)FieldIndexEnum::Payload) * (messageSize - (uint8_t)FieldIndexEnum::Payload));
 		}
 
-		static constexpr uint8_t GetMessageSize(const uint8_t payloadSize)
+		static constexpr size_t GetMessageSize(const uint8_t payloadSize)
 		{
-			return (uint8_t)FieldIndexEnum::Payload + payloadSize;
+			return (size_t)FieldIndexEnum::Payload + payloadSize;
 		}
 	};
 }
