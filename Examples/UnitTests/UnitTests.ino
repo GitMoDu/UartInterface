@@ -237,14 +237,15 @@ bool MessageEncodeAndDecodeMatch(const size_t payloadSize)
 	for (size_t i = 0; i < uint8_t(MessageDefinition::FieldIndexEnum::Header); i++)
 	{
 		testBuffer[i] = 0;
-		testInMessage[i] = 0;
+		testInMessage[i] = testBuffer[i];
+		testOutMessage[i] = testBuffer[i];
 	}
 
 	for (size_t i = uint8_t(MessageDefinition::FieldIndexEnum::Header); i < MaxRawSize; i++)
 	{
-		testBuffer[i] = i + payloadSize;
-		testInMessage[i] = i + payloadSize;
-		testOutMessage[i] = i + payloadSize;
+		testBuffer[i] = (i + payloadSize) % (payloadSize / 4);
+		testInMessage[i] = testBuffer[i];
+		testOutMessage[i] = testBuffer[i];
 	}
 
 	const uint8_t encodedSize = Codec.EncodeMessageAndCrcInPlace(testBuffer, MessageDefinition::GetMessageSize(payloadSize));
@@ -282,9 +283,9 @@ bool CobsEncodeDecodeMatch(const size_t size)
 
 	for (size_t i = 0; i < MaxRawSize; i++)
 	{
-		testOutMessage[i] = i;
-		testInMessage[i] = i;
-		testBuffer[i] = i;
+		testOutMessage[i] = i % (size / 4);
+		testInMessage[i] = testOutMessage[i];
+		testBuffer[i] = testOutMessage[i];
 	}
 
 	const uint8_t encodedSize = UartCobsCodec::Encode(testOutMessage, testBuffer, size);
