@@ -12,20 +12,20 @@ namespace UartCobsCodec
 		static constexpr uint8_t MaxCode = 0xFF;
 	}
 
-	static constexpr uint8_t DataSizeMax = UINT8_MAX - 2;
+	static constexpr uint8_t BufferSizeMax = UINT8_MAX - 1;
+	static constexpr uint8_t DataSizeMax = BufferSizeMax - 1;
 
-
-	static constexpr size_t GetBufferSize(const size_t dataSize)
+	static constexpr uint16_t GetBufferSize(const uint16_t dataSize)
 	{
-		return dataSize + 1;
+		return uint16_t(dataSize <= DataSizeMax) * (dataSize + 1);
 	}
 
-	static constexpr size_t GetDataSize(const size_t bufferSize)
+	static constexpr uint16_t GetDataSize(const uint16_t bufferSize)
 	{
-		return bufferSize - 1;
+		return uint8_t(bufferSize <= (DataSizeMax + 1)) * (bufferSize - 1);
 	}
 
-	static const uint8_t Encode(const uint8_t* buffer, uint8_t* encodedBuffer, const uint8_t size)
+	static uint8_t Encode(const uint8_t* buffer, uint8_t* encodedBuffer, const uint8_t size)
 	{
 		uint8_t read_index = 0;
 		uint8_t write_index = 1;
@@ -60,11 +60,10 @@ namespace UartCobsCodec
 		return write_index;
 	}
 
-	static const uint8_t Decode(const uint8_t* buffer, uint8_t* decodedBuffer, const uint8_t size)
+	static uint8_t Decode(const uint8_t* buffer, uint8_t* decodedBuffer, const uint8_t size)
 	{
 		uint8_t read_index = 0;
 		uint8_t write_index = 0;
-		uint8_t i = 0;
 
 		while (read_index < size)
 		{
@@ -97,7 +96,7 @@ namespace UartCobsCodec
 		return write_index;
 	}
 
-	static const uint8_t DecodeInPlace(uint8_t* buffer, const uint8_t size)
+	static uint8_t DecodeInPlace(uint8_t* buffer, const uint8_t size)
 	{
 		return Decode(buffer, buffer, size);
 	}

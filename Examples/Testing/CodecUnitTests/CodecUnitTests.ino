@@ -1,25 +1,24 @@
 /*
 	Library Unit Testing Project.
+	Tests COBS and UartInterface::Message codecs.
 */
 
-#define SERIAL_BAUD_RATE 9600
+#define SERIAL_BAUD_RATE 115200
 
 #include <UartInterface.h>
 #include <UartInterfaceTask.h>
 
 using namespace UartInterface;
 
-static constexpr uint8_t Key[]{ 0, 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 };
+static constexpr uint8_t Key[]{ 0, 1, 2, 3, 4, 5, 6, 7, 8 ,9 ,10, 11 ,12, 13 , 14, 15 };
 static constexpr uint8_t KeySize = sizeof(Key);
 
+MessageCodec<> Codec(Key, KeySize);
 
-UartInterfaceCodec<UartCobsCodec::DataSizeMax> Codec(Key, KeySize);
-
-static constexpr size_t MaxRawSize = (size_t)1 + MessageDefinition::GetMessageSize(MessageDefinition::PayloadSizeMax);
-
-uint8_t testBuffer[MaxRawSize]{};
-uint8_t testOutMessage[MaxRawSize]{};
-uint8_t testInMessage[MaxRawSize]{};
+static constexpr size_t BufferSize = MessageDefinition::GetBufferSizeFromPayload(MessageDefinition::PayloadSizeMax);
+uint8_t testBuffer[BufferSize]{};
+uint8_t testOutMessage[BufferSize]{};
+uint8_t testInMessage[BufferSize]{};
 
 void loop()
 {
@@ -51,12 +50,12 @@ void OnFail()
 
 void setup()
 {
-	delay(1000);
 	Serial.begin(SERIAL_BAUD_RATE);
+	while (!Serial)
+		;
 
 	Serial.println();
-	Serial.println();
-	Serial.println(F("Uart Interface Test Start"));
+	Serial.println(F("Uart Interface Codec Unit Test Start"));
 	Serial.println();
 
 	if (!Codec.Setup())
@@ -68,27 +67,27 @@ void setup()
 	MessageEncodeAndDecodeMatch();
 
 	Serial.println();
-	Serial.println();
 	Serial.println(F("All tests passed."));
 	Serial.println();
 
 	CobsBenchmark();
 	MessageEncodeAndDecodeBenchmark();
 
+	Serial.println(F("All benchmarks complete."));
+	Serial.println();
 }
 
 void MessageEncodeAndDecodeBenchmark()
 {
-	Serial.print(F("Message Key Size: "));
+	Serial.print(F("Codec Key Size: "));
 	Serial.print(KeySize);
 	Serial.println(F(" bytes"));
-	Serial.println();
-
 	MessageBenchmark(1);
 	MessageBenchmark(16);
 	MessageBenchmark(32);
 	MessageBenchmark(64);
 	MessageBenchmark(MessageDefinition::PayloadSizeMax);
+	Serial.println();
 }
 
 void CobsBenchmark()
@@ -97,17 +96,18 @@ void CobsBenchmark()
 	CobsBenchmark(16);
 	CobsBenchmark(32);
 	CobsBenchmark(64);
-	CobsBenchmark(UartCobsCodec::DataSizeMax - 1);
+	CobsBenchmark(UartCobsCodec::DataSizeMax);
+	Serial.println();
 }
 
 void MessageEncodeAndDecodeMatch()
 {
 	// Invalid size should fail.
-	for (size_t i = size_t(MessageDefinition::PayloadSizeMax) + 1; i <= UINT8_MAX; i++)
+	for (uint16_t i = size_t(MessageDefinition::PayloadSizeMax) + 1; i <= UINT8_MAX; i++)
 	{
 		if (MessageEncodeAndDecodeMatch(i))
 		{
-			Serial.print(F("Message fail at "));
+			Serial.print(F("Message false invalid at "));
 			Serial.println(i);
 			OnFail();
 		}
@@ -118,12 +118,13 @@ void MessageEncodeAndDecodeMatch()
 	{
 		if (!MessageEncodeAndDecodeMatch(i))
 		{
-			Serial.print(F("Message fail at "));
+			Serial.print(F("Message false valid at "));
 			Serial.println(i);
 			OnFail();
 		}
 	}
 }
+
 
 void CobsEncodeAndDecodeMatch()
 {
@@ -131,7 +132,7 @@ void CobsEncodeAndDecodeMatch()
 	if (CobsEncodeDecodeMatch(0))
 	{
 		OnFail();
-		Serial.print(F("COBS fail at "));
+		Serial.print(F("COBS false invalid at "));
 		Serial.println(0);
 	}
 
@@ -140,7 +141,7 @@ void CobsEncodeAndDecodeMatch()
 		if (CobsEncodeDecodeMatch(i))
 		{
 			OnFail();
-			Serial.print(F("COBS fail at "));
+			Serial.print(F("COBS false valid at "));
 			Serial.println(i);
 		}
 	}
@@ -150,14 +151,14 @@ void CobsEncodeAndDecodeMatch()
 	{
 		if (!CobsEncodeDecodeMatch(i))
 		{
-			Serial.print(F("COBS fail at "));
+			Serial.print(F("COBS false valid at "));
 			Serial.println(i);
 			OnFail();
 		}
 	}
 }
 
-void MessageBenchmark(const uint8_t size)
+void MessageBenchmark(const uint8_t payloadSize)
 {
 	uint32_t start = 0;
 	uint32_t end = 0;
@@ -165,11 +166,11 @@ void MessageBenchmark(const uint8_t size)
 	testOutMessage[(uint8_t)MessageDefinition::FieldIndexEnum::Header] = 1;
 
 	start = micros();
-	const uint8_t outSize = Codec.EncodeMessageAndCrcInPlace(testOutMessage, MessageDefinition::GetMessageSize(size));
+	const uint8_t outSize = Codec.EncodeMessageAndCrcInPlace(testOutMessage, MessageDefinition::GetMessageSize(payloadSize));
 	end = micros();
 
 	Serial.print(F("Message Encode "));
-	Serial.print(MessageDefinition::GetMessageSize(size));
+	Serial.print(MessageDefinition::GetMessageSize(payloadSize));
 	Serial.print(F(" bytes took "));
 	Serial.print(end - start);
 	Serial.println(F(" us"));
@@ -183,7 +184,7 @@ void MessageBenchmark(const uint8_t size)
 		end = micros();
 
 		Serial.print(F("Message Decode "));
-		Serial.print(MessageDefinition::GetMessageSize(size));
+		Serial.print(MessageDefinition::GetMessageSize(payloadSize));
 		Serial.print(F(" bytes took "));
 		Serial.print(end - start);
 		Serial.println(F(" us"));
@@ -195,7 +196,7 @@ void CobsBenchmark(const uint8_t size)
 	uint32_t start = 0;
 	uint32_t end = 0;
 
-	for (size_t i = 0; i < MaxRawSize; i++)
+	for (size_t i = 0; i < BufferSize; i++)
 	{
 		testOutMessage[i] = i;
 		testBuffer[i] = i;
@@ -220,37 +221,35 @@ void CobsBenchmark(const uint8_t size)
 		end = micros();
 
 		Serial.print(F("COBS Decode "));
-		Serial.print(MessageDefinition::GetMessageSize(size));
+		Serial.print(size);
 		Serial.print(F(" bytes took "));
 		Serial.print(end - start);
 		Serial.println(F(" us"));
 	}
 }
 
-bool MessageEncodeAndDecodeMatch(const size_t payloadSize)
+bool MessageEncodeAndDecodeMatch(const uint8_t payloadSize)
 {
 	if (payloadSize > MessageDefinition::PayloadSizeMax)
 	{
 		return false;
 	}
 
-	for (size_t i = 0; i < uint8_t(MessageDefinition::FieldIndexEnum::Header); i++)
+	for (uint16_t i = 0; i < uint8_t(MessageDefinition::FieldIndexEnum::Header); i++)
 	{
 		testBuffer[i] = 0;
-		testInMessage[i] = testBuffer[i];
 		testOutMessage[i] = testBuffer[i];
 	}
 
-	for (size_t i = uint8_t(MessageDefinition::FieldIndexEnum::Header); i < MaxRawSize; i++)
+	for (uint16_t i = uint8_t(MessageDefinition::FieldIndexEnum::Header); i < BufferSize; i++)
 	{
-		testBuffer[i] = (i + payloadSize) % (payloadSize / 4);
-		testInMessage[i] = testBuffer[i];
+		testBuffer[i] = (i + payloadSize);
 		testOutMessage[i] = testBuffer[i];
 	}
 
-	const uint8_t encodedSize = Codec.EncodeMessageAndCrcInPlace(testBuffer, MessageDefinition::GetMessageSize(payloadSize));
+	const uint16_t encodedSize = Codec.EncodeMessageAndCrcInPlace(testBuffer, MessageDefinition::GetMessageSize(payloadSize));
 
-	if (encodedSize != MessageDefinition::GetMessageSize(payloadSize) + 1)
+	if (encodedSize != MessageDefinition::GetBufferSizeFromPayload(payloadSize))
 	{
 		return false;
 	}
@@ -281,9 +280,9 @@ bool CobsEncodeDecodeMatch(const size_t size)
 		return false;
 	}
 
-	for (size_t i = 0; i < MaxRawSize; i++)
+	for (size_t i = 0; i < BufferSize; i++)
 	{
-		testOutMessage[i] = i % (size / 4);
+		testOutMessage[i] = i + size;
 		testInMessage[i] = testOutMessage[i];
 		testBuffer[i] = testOutMessage[i];
 	}
