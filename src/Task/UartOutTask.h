@@ -207,14 +207,8 @@ namespace UartInterface
 					size = available;
 				}
 
-				if (size > 0)
-				{
-					SerialInstance.write(&OutBuffer[OutIndex], size);
-				}
-				else
-				{
-					Serial.println("No room to write");
-				}
+				SerialInstance.write(&OutBuffer[OutIndex], size);
+
 
 				return size;
 			}

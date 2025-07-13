@@ -7,7 +7,6 @@
 #include <UartInterface.h>
 #include "UartOutTask.h"
 
-
 namespace UartInterface
 {
 	template<typename SerialType,
@@ -112,7 +111,7 @@ namespace UartInterface
 			return UartWriter.CanSend();
 		}
 
-		bool IsSerialConnected() const
+		bool IsSerialConnected()
 		{
 			return SerialInstance;
 		}
