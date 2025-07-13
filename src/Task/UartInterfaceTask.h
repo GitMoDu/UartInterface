@@ -11,7 +11,7 @@ namespace UartInterface
 {
 	template<typename SerialType,
 		typename UartDefinitions = UartInterface::TemplateUartDefinitions<>>
-		class UartInterfaceTask : private TS::Task
+		class UartInterfaceTask : public TS::Task
 	{
 	private:
 		using MessageDefinition = UartInterface::MessageDefinition;

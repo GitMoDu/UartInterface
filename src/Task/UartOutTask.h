@@ -19,7 +19,7 @@ namespace UartInterface
 		template<typename SerialType,
 			uint8_t MaxSerialStepOut,
 			uint32_t WriteTimeoutMillis>
-		class UartOutTask : private TS::Task
+		class UartOutTask : public TS::Task
 		{
 		private:
 			enum class StateEnum : uint8_t
@@ -136,9 +136,9 @@ namespace UartInterface
 						}
 					}
 #if defined(ARDUINO_ARCH_STM32F4)
-					else if((USART_TX_BUF_SIZE - SerialInstance.pending()) > MessageDefinition::MessageSizeMin)
+					else if ((USART_TX_BUF_SIZE - SerialInstance.pending()) > MessageDefinition::MessageSizeMin)
 #else
-					else if(SerialInstance.availableForWrite() > MessageDefinition::MessageSizeMin)
+					else if (SerialInstance.availableForWrite() > MessageDefinition::MessageSizeMin)
 #endif
 					{
 						SerialInstance.write((uint8_t)(MessageDefinition::Delimiter));
