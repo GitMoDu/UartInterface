@@ -81,15 +81,15 @@ namespace UartInterface
 	class UartListener
 	{
 	public:
-		virtual void OnUartStateChange(const bool connected) {}
+		virtual void OnUartStateChange(const bool connected) = 0;
 
-		virtual void OnUartRx(const uint8_t header) {}
-		virtual void OnUartRx(const uint8_t header, const uint8_t* payload, const uint8_t payloadSize) {}
+		virtual void OnUartRx(const uint8_t header) = 0;
+		virtual void OnUartRx(const uint8_t header, const uint8_t* payload, const uint8_t payloadSize) = 0;
 
-		virtual void OnUartTx() {}
+		virtual void OnUartTx() = 0;
 
-		virtual void OnUartRxError(const RxErrorEnum error) {}
-		virtual void OnUartTxError(const TxErrorEnum error) {}
+		virtual void OnUartRxError(const RxErrorEnum error) = 0;
+		virtual void OnUartTxError(const TxErrorEnum error) = 0;
 	};
 }
 #endif
