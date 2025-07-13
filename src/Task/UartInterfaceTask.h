@@ -71,8 +71,6 @@ namespace UartInterface
 		{
 			UartWriter.Clear();
 			State = StateEnum::WaitingForSerial;
-
-			SerialInstance.end();
 			SerialInstance.begin(UartDefinitions::Baudrate);
 
 			TS::Task::enableDelayed(0);
