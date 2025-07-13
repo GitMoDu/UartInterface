@@ -84,7 +84,13 @@ namespace UartInterface
 
 			bool CanSend() const
 			{
-				return SendState == StateEnum::NotSending && SerialInstance.availableForWrite() >= MessageDefinition::MessageSizeMin;
+				return SendState == StateEnum::NotSending
+#if defined(ARDUINO_ARCH_STM32F4)
+					&& (USART_TX_BUF_SIZE - SerialInstance.pending()) >= MessageDefinition::MessageSizeMin
+#else
+					&& SerialInstance.availableForWrite() >= MessageDefinition::MessageSizeMin
+#endif
+					;
 			}
 
 			bool SendMessage(const uint8_t messageSize)
@@ -129,7 +135,11 @@ namespace UartInterface
 							Listener->OnUartTxError(UartInterface::TxErrorEnum::StartTimeout);
 						}
 					}
-					else if (SerialInstance.availableForWrite() > MessageDefinition::MessageSizeMin)
+#if defined(ARDUINO_ARCH_STM32F4)
+					else if((USART_TX_BUF_SIZE - SerialInstance.pending()) > MessageDefinition::MessageSizeMin)
+#else
+					else if(SerialInstance.availableForWrite() > MessageDefinition::MessageSizeMin)
+#endif
 					{
 						SerialInstance.write((uint8_t)(MessageDefinition::Delimiter));
 						SendState = StateEnum::SendingData;
@@ -172,7 +182,12 @@ namespace UartInterface
 						}
 					}
 					else if (SerialInstance
-						&& SerialInstance.availableForWrite())
+#if defined(ARDUINO_ARCH_STM32F4)
+						&& (USART_TX_BUF_SIZE - SerialInstance.pending())
+#else
+						&& SerialInstance.availableForWrite()
+#endif
+						)
 					{
 						SerialInstance.write((uint8_t)(MessageDefinition::Delimiter));
 						SendState = StateEnum::NotSending;
@@ -201,7 +216,11 @@ namespace UartInterface
 					size = MaxSerialStepOut;
 				}
 
-				const uint8_t available = SerialInstance.availableForWrite();
+#if defined(ARDUINO_ARCH_STM32F4)
+				const uint16_t available = USART_TX_BUF_SIZE - SerialInstance.pending();
+#else
+				const uint16_t available = SerialInstance.availableForWrite();
+#endif
 				if (size > available)
 				{
 					size = available;
