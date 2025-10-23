@@ -56,6 +56,8 @@ UartInterface::UartInterfaceTask<HardwareSerial, MyDefs> uiTask(
 
 ## Protocol details
 
+![Message layout and on-wire framing](https://github.com/GitMoDu/UartInterface/blob/master/Media/message_layout.svg)
+
 - On-wire framing:
   - Each message is sent as: [0x00] + COBS-encoded message bytes + [0x00]
   - `MessageDefinition::Delimiter` is 0x00
