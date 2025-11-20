@@ -1,4 +1,4 @@
-# UartInterface
+# ![Message layout and on-wire framing](https://github.com/GitMoDu/UartInterface/blob/master/Media/banner.svg)
 
 Framed UART messaging for Arduino-style platforms using COBS framing and a keyed Fletcher16 CRC. Provides non-blocking TX/RX tasks, backpressure handling, and compile-time configuration.
 
