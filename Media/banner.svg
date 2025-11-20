@@ -1,0 +1,56 @@
+<svg width="820" height="250" viewBox="0 0 820 250" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bggrad" x1="0" y1="0" x2="820" y2="250" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#191970"/>
+      <stop offset="1" stop-color="#20B2AA"/>
+    </linearGradient>
+    <radialGradient id="packetGlow" cx="0" cy="0" r="1" gradientTransform="translate(410 125) scale(200)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#44f3fa" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#191970" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="0" y="0" width="820" height="250" opacity="0.15" fill="#000000"/>
+  
+  <!-- Left board -->
+  <rect x="80" y="70" width="150" height="90" rx="14" fill="#222e41" stroke="#1de9b6" stroke-width="3"/>
+  <!-- Silkscreen lines on left board -->
+  <rect x="100" y="95" width="20" height="6" rx="3" fill="#36d7cb"/>
+  <rect x="140" y="115" width="36" height="6" rx="3" fill="#8df0f7"/>
+  <rect x="125" y="135" width="60" height="5" rx="2.5" fill="#44f3fa"/>
+
+  <!-- Right board -->
+  <rect x="590" y="65" width="150" height="90" rx="14" fill="#2f1e41" stroke="#8df0f7" stroke-width="3"/>
+  <!-- Silkscreen lines on right board -->
+  <rect x="610" y="90" width="20" height="6" rx="3" fill="#a031b9"/>
+  <rect x="650" y="110" width="36" height="6" rx="3" fill="#ee81ff"/>
+  <rect x="635" y="130" width="60" height="5" rx="2.5" fill="#bc57e3"/>
+
+  <!-- Futuristic wire connections with bitstream -->
+  <!-- Wire 1 -->
+  <path d="M220,100 C330,80 490,80 610,100" stroke="#44f3fa" stroke-width="5" fill="none"/>
+  <!-- Wire 3 -->
+  <path d="M230,155 C350,190 480,190 620,145" stroke="#f3dc44" stroke-width="4" fill="none"/>
+
+  <!-- Bitstream packets -->
+  <g>
+    <!-- Packet 1 -->
+    <rect x="345" y="83" width="70" height="26" rx="8" fill="url(#packetGlow)" opacity="0.8"/>
+    <text x="350" y="101" font-family="Consolas, monospace" font-size="18" fill="#fff" opacity="0.9">11010101</text>
+    <!-- Packet 2 -->
+    <rect x="470" y="137" width="67" height="26" rx="8" fill="url(#packetGlow)" opacity="0.7"/>
+    <text x="475" y="155" font-family="Consolas, monospace" font-size="18" fill="#fff" opacity="0.8">10100110</text>
+    <!-- Packet 3 -->
+    <rect x="400" y="182" width="63" height="23" rx="6" fill="url(#packetGlow)" opacity="0.5"/>
+    <text x="405" y="198" font-family="Consolas, monospace" font-size="16" fill="#fff" opacity="0.7">01101000</text>
+  </g>
+
+  <!-- Decorative digital grid -->
+  <g opacity="0.2">
+    <rect x="290" y="30" width="260" height="190" stroke="#fff" stroke-dasharray="4 8"/>
+    <circle cx="410" cy="125" r="100" stroke="#fff" stroke-dasharray="3 6"/>
+  </g>
+
+  <!-- Title text -->
+  <text x="250" y="45" font-family="Consolas, monospace" font-size="38" fill="#fff" font-weight="bold" opacity="0.9">UartInterface</text>
+ 
+</svg>
