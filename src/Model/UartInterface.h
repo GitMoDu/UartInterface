@@ -85,7 +85,7 @@ namespace UartInterface
 		virtual void OnUartRx(const uint8_t header) = 0;
 		virtual void OnUartRx(const uint8_t header, const uint8_t* payload, const uint8_t payloadSize) = 0;
 
-		virtual void OnUartTx() = 0;
+		virtual void OnUartTx(const uint8_t txSize) = 0;
 
 		virtual void OnUartRxError(const RxErrorEnum error) = 0;
 		virtual void OnUartTxError(const TxErrorEnum error) = 0;

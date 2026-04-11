@@ -193,7 +193,7 @@ namespace UartInterface
 						SendState = StateEnum::NotSending;
 						if (Listener != nullptr)
 						{
-							Listener->OnUartTx();
+							Listener->OnUartTx(OutSize);
 						}
 					}
 					break;
