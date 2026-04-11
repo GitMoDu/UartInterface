@@ -7,7 +7,7 @@
 namespace UartInterface
 {
 	template<uint32_t baudrate = 115200,
-		uint32_t maxPayloadSize = 64,
+		uint8_t maxPayloadSize = 64,
 		uint8_t maxSerialStepOut = 32,
 		uint8_t maxSerialStepIn = 32,
 		uint32_t writeTimeoutMillis = 50,
@@ -16,7 +16,7 @@ namespace UartInterface
 	struct TemplateUartDefinitions
 	{
 		static constexpr uint32_t Baudrate = baudrate;
-		static constexpr uint32_t MaxPayloadSize = maxPayloadSize;
+		static constexpr uint8_t MaxPayloadSize = maxPayloadSize;
 		static constexpr uint8_t MaxSerialStepOut = maxSerialStepOut;
 		static constexpr uint8_t MaxSerialStepIn = maxSerialStepIn;
 
