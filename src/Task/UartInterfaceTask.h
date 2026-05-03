@@ -10,8 +10,9 @@
 namespace UartInterface
 {
 	template<typename SerialType,
-		typename UartDefinitions = UartInterface::TemplateUartDefinitions<>>
-		class UartInterfaceTask : public TS::Task
+		typename UartDefinitions = UartInterface::TemplateUartDefinitions<>
+	>
+	class UartInterfaceTask : public TS::Task
 	{
 	private:
 		using MessageDefinition = UartInterface::MessageDefinition;
@@ -59,7 +60,11 @@ namespace UartInterface
 			, Codec(key, keySize)
 			, SerialInstance(serialInstance)
 			, Listener(listener)
+		{}
+
+		TS::Task& GetUartOutTask()
 		{
+			return UartWriter;
 		}
 
 		bool Setup()
