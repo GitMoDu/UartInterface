@@ -75,8 +75,11 @@ namespace UartInterface
 		void Start()
 		{
 			UartWriter.Clear();
+			PollStart = 0;
+			LastIn = 0;
+			InSize = 0;
 			State = StateEnum::WaitingForSerial;
-			SerialInstance.begin(UartDefinitions::Baudrate);
+			SerialInstance.begin((unsigned long)UartDefinitions::Baudrate);
 
 			TS::Task::enableDelayed(0);
 		}
@@ -125,24 +128,30 @@ namespace UartInterface
 
 			const uint8_t outSize = Codec.EncodeMessageAndCrcInPlace(OutBuffer, MessageDefinition::GetMessageSize(0));
 
-			return UartWriter.SendMessage(outSize);
+			return CanSendMessage() && UartWriter.SendMessage(outSize);
 		}
 
-		bool SendMessage(const uint8_t header, const uint8_t* payload, const uint8_t payloadSize)
+		template<typename... PayloadArgs>
+		bool SendMessage(const uint8_t header,
+			const uint8_t* payload1, const uint8_t payloadSize1,
+			PayloadArgs... payloadArgs)
 		{
-			if (!CanSendMessage()
-				|| payloadSize > UartDefinitions::MaxPayloadSize
-				|| payload == nullptr)
+			static_assert((sizeof...(payloadArgs) % 2) == 0,
+				"SendMessage payload arguments must be pointer/size pairs.");
+
+			uint8_t totalPayloadSize = 0;
+			if (!ValidatePayloadParts(totalPayloadSize, payload1, payloadSize1, payloadArgs...))
 			{
 				return false;
 			}
 
 			OutBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Header] = header;
-			memcpy(&OutBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Payload], payload, payloadSize);
+			uint8_t payloadOffset = (uint8_t)MessageDefinition::FieldIndexEnum::Payload;
+			CopyPayloadParts(payloadOffset, payload1, payloadSize1, payloadArgs...);
 
-			const uint8_t outSize = Codec.EncodeMessageAndCrcInPlace(OutBuffer, MessageDefinition::GetMessageSize(payloadSize));
+			const uint8_t outSize = Codec.EncodeMessageAndCrcInPlace(OutBuffer, MessageDefinition::GetMessageSize(totalPayloadSize));
 
-			return UartWriter.SendMessage(outSize);
+			return CanSendMessage() && UartWriter.SendMessage(outSize);
 		}
 
 		void OnSerialEvent()
@@ -173,6 +182,7 @@ namespace UartInterface
 					if (UartWriter.Start())
 					{
 						State = StateEnum::ActiveWaitPoll;
+						PollStart = millis();
 						TS::Task::delay(TASK_IMMEDIATE);
 						if (Listener != nullptr)
 						{
@@ -318,6 +328,45 @@ namespace UartInterface
 			{
 				Listener->OnUartRxError(RxErrorEnum::TooShort);
 			}
+		}
+
+	private:
+		bool ValidatePayloadParts(uint8_t& totalPayloadSize)
+		{
+			return true;
+		}
+
+		template<typename... PayloadArgs>
+		bool ValidatePayloadParts(uint8_t& totalPayloadSize,
+			const uint8_t* payload, const uint8_t payloadSize,
+			PayloadArgs... payloadArgs)
+		{
+			if ((payloadSize > 0 && payload == nullptr)
+				|| totalPayloadSize + payloadSize > UartDefinitions::MaxPayloadSize)
+			{
+				return false;
+			}
+
+			totalPayloadSize += payloadSize;
+
+			return ValidatePayloadParts(totalPayloadSize, payloadArgs...);
+		}
+
+		void CopyPayloadParts(uint8_t& payloadOffset)
+		{}
+
+		template<typename... PayloadArgs>
+		void CopyPayloadParts(uint8_t& payloadOffset,
+			const uint8_t* payload, const uint8_t payloadSize,
+			PayloadArgs... payloadArgs)
+		{
+			if (payloadSize > 0)
+			{
+				memcpy(&OutBuffer[payloadOffset], payload, payloadSize);
+				payloadOffset += payloadSize;
+			}
+
+			CopyPayloadParts(payloadOffset, payloadArgs...);
 		}
 	};
 }
