@@ -51,8 +51,7 @@ namespace UartInterface
 				, SerialInstance(serialInstance)
 				, OutBuffer(outBuffer)
 				, Listener(listener)
-			{
-			}
+			{}
 
 			bool Setup() const
 			{
@@ -86,9 +85,11 @@ namespace UartInterface
 			{
 				return SendState == StateEnum::NotSending
 #if defined(ARDUINO_ARCH_STM32F4)
-					&& (USART_TX_BUF_SIZE - SerialInstance.pending()) >= MessageDefinition::MessageSizeMin
+					&& (USART_TX_BUF_SIZE - SerialInstance.pending()) > 0
+#elif defined(ARDUINO_ARCH_RP2040)
+					&& SerialInstance.availableForWrite() > 0
 #else
-					&& SerialInstance.availableForWrite() >= MessageDefinition::MessageSizeMin
+					&& SerialInstance.availableForWrite() > 0
 #endif
 					;
 			}
@@ -136,9 +137,11 @@ namespace UartInterface
 						}
 					}
 #if defined(ARDUINO_ARCH_STM32F4)
-					else if ((USART_TX_BUF_SIZE - SerialInstance.pending()) > MessageDefinition::MessageSizeMin)
+					else if ((USART_TX_BUF_SIZE - SerialInstance.pending()) > 0)
+#elif defined(ARDUINO_ARCH_RP2040)
+					else if (SerialInstance.availableForWrite() > 0)
 #else
-					else if (SerialInstance.availableForWrite() > MessageDefinition::MessageSizeMin)
+					else if (SerialInstance.availableForWrite() > 0)
 #endif
 					{
 						SerialInstance.write((uint8_t)(MessageDefinition::Delimiter));
@@ -181,13 +184,13 @@ namespace UartInterface
 							Listener->OnUartTxError(UartInterface::TxErrorEnum::EndTimeout);
 						}
 					}
-					else if (SerialInstance
 #if defined(ARDUINO_ARCH_STM32F4)
-						&& (USART_TX_BUF_SIZE - SerialInstance.pending())
+					else if ((USART_TX_BUF_SIZE - SerialInstance.pending()) > 0)
+#elif defined(ARDUINO_ARCH_RP2040)
+					else if (SerialInstance.availableForWrite() > 0)
 #else
-						&& SerialInstance.availableForWrite()
+					else if (SerialInstance.availableForWrite() > 0)
 #endif
-						)
 					{
 						SerialInstance.write((uint8_t)(MessageDefinition::Delimiter));
 						SendState = StateEnum::NotSending;
@@ -218,18 +221,36 @@ namespace UartInterface
 
 #if defined(ARDUINO_ARCH_STM32F4)
 				const uint16_t available = USART_TX_BUF_SIZE - SerialInstance.pending();
-#else
-				const uint16_t available = SerialInstance.availableForWrite();
-#endif
 				if (size > available)
 				{
 					size = available;
 				}
 
 				SerialInstance.write(&OutBuffer[OutIndex], size);
-
-
 				return size;
+#elif defined(ARDUINO_ARCH_RP2040)
+				const uint16_t available = SerialInstance.availableForWrite();
+				if (size > available)
+				{
+					size = available;
+				}
+
+				if (size == 0)
+				{
+					return 0;
+				}
+
+				return (uint8_t)SerialInstance.write(&OutBuffer[OutIndex], size);
+#else
+				const uint16_t available = SerialInstance.availableForWrite();
+				if (size > available)
+				{
+					size = available;
+				}
+
+				SerialInstance.write(&OutBuffer[OutIndex], size);
+				return size;
+#endif
 			}
 		};
 	}
