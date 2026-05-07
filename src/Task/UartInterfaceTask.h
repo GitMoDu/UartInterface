@@ -12,7 +12,8 @@ namespace UartInterface
 	template<typename SerialType,
 		typename UartDefinitions = UartInterface::TemplateUartDefinitions<>
 	>
-	class UartInterfaceTask : public TS::Task
+	class UartInterfaceTask : public UartInterface::IUartInterface
+		, public TS::Task
 	{
 	private:
 		using MessageDefinition = UartInterface::MessageDefinition;
@@ -55,12 +56,18 @@ namespace UartInterface
 		UartInterfaceTask(TS::Scheduler& scheduler, SerialType& serialInstance, IUartListener* listener,
 			const uint8_t* key,
 			const uint8_t keySize)
-			: TS::Task(TASK_IMMEDIATE, TASK_FOREVER, &scheduler, false)
+			: UartInterface::IUartInterface()
+			, TS::Task(TASK_IMMEDIATE, TASK_FOREVER, &scheduler, false)
 			, UartWriter(scheduler, serialInstance, OutBuffer, listener)
 			, Codec(key, keySize)
 			, SerialInstance(serialInstance)
 			, Listener(listener)
 		{}
+
+		virtual void SetListener(IUartListener* listener) override
+		{
+			Listener = listener;
+		}
 
 		TS::Task& GetUartOutTask()
 		{
@@ -103,7 +110,7 @@ namespace UartInterface
 			TS::Task::disable();
 		}
 
-		bool CanSendMessage() const
+		virtual bool CanSendMessage() override
 		{
 			switch (State)
 			{
@@ -117,12 +124,12 @@ namespace UartInterface
 			return UartWriter.CanSend();
 		}
 
-		bool IsSerialConnected()
+		virtual bool IsSerialConnected() override
 		{
 			return SerialInstance;
 		}
 
-		bool SendMessage(const uint8_t header)
+		virtual bool SendMessage(const uint8_t header) override
 		{
 			OutBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Header] = header;
 
@@ -131,28 +138,84 @@ namespace UartInterface
 			return CanSendMessage() && UartWriter.SendMessage(outSize);
 		}
 
-		template<typename... PayloadArgs>
-		bool SendMessage(const uint8_t header,
-			const uint8_t* payload1, const uint8_t payloadSize1,
-			PayloadArgs... payloadArgs)
+		virtual bool SendMessage(const uint8_t header,
+			const uint8_t* payload1, const uint8_t payloadSize1) override
 		{
-			static_assert((sizeof...(payloadArgs) % 2) == 0,
-				"SendMessage payload arguments must be pointer/size pairs.");
-
-			uint8_t totalPayloadSize = 0;
-			if (!ValidatePayloadParts(totalPayloadSize, payload1, payloadSize1, payloadArgs...))
-			{
-				return false;
-			}
-
-			OutBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Header] = header;
-			uint8_t payloadOffset = (uint8_t)MessageDefinition::FieldIndexEnum::Payload;
-			CopyPayloadParts(payloadOffset, payload1, payloadSize1, payloadArgs...);
-
-			const uint8_t outSize = Codec.EncodeMessageAndCrcInPlace(OutBuffer, MessageDefinition::GetMessageSize(totalPayloadSize));
-
-			return CanSendMessage() && UartWriter.SendMessage(outSize);
+			return SendMessageMultiPayload(header, payload1, payloadSize1);
 		}
+
+
+		virtual bool SendMessage(const uint8_t header,
+			const uint8_t* payload1, const uint8_t payloadSize1,
+			const uint8_t* payload2, const uint8_t payloadSize2) override
+		{
+			return SendMessageMultiPayload(header, payload1, payloadSize1, payload2, payloadSize2);
+		}
+
+		virtual bool SendMessage(const uint8_t header,
+			const uint8_t* payload1, const uint8_t payloadSize1,
+			const uint8_t* payload2, const uint8_t payloadSize2,
+			const uint8_t* payload3, const uint8_t payloadSize3) override
+		{
+			return SendMessageMultiPayload(header, payload1, payloadSize1, payload2, payloadSize2, payload3, payloadSize3);
+		}
+
+
+		virtual bool SendMessage(const uint8_t header,
+			const uint8_t* payload1, const uint8_t payloadSize1,
+			const uint8_t* payload2, const uint8_t payloadSize2,
+			const uint8_t* payload3, const uint8_t payloadSize3,
+			const uint8_t* payload4, const uint8_t payloadSize4) override
+		{
+			return SendMessageMultiPayload(header, payload1, payloadSize1, payload2, payloadSize2, payload3, payloadSize3, payload4, payloadSize4);
+		}
+
+		virtual bool SendMessage(const uint8_t header,
+			const uint8_t* payload1, const uint8_t payloadSize1,
+			const uint8_t* payload2, const uint8_t payloadSize2,
+			const uint8_t* payload3, const uint8_t payloadSize3,
+			const uint8_t* payload4, const uint8_t payloadSize4,
+			const uint8_t* payload5, const uint8_t payloadSize5) override
+		{
+			return SendMessageMultiPayload(header, payload1, payloadSize1, payload2, payloadSize2, payload3, payloadSize3, payload4, payloadSize4, payload5, payloadSize5);
+		}
+
+		virtual bool SendMessage(const uint8_t header,
+			const uint8_t* payload1, const uint8_t payloadSize1,
+			const uint8_t* payload2, const uint8_t payloadSize2,
+			const uint8_t* payload3, const uint8_t payloadSize3,
+			const uint8_t* payload4, const uint8_t payloadSize4,
+			const uint8_t* payload5, const uint8_t payloadSize5,
+			const uint8_t* payload6, const uint8_t payloadSize6)override
+		{
+			return SendMessageMultiPayload(header, payload1, payloadSize1, payload2, payloadSize2, payload3, payloadSize3, payload4, payloadSize4, payload5, payloadSize5, payload6, payloadSize6);
+		}
+
+		virtual bool SendMessage(const uint8_t header,
+			const uint8_t* payload1, const uint8_t payloadSize1,
+			const uint8_t* payload2, const uint8_t payloadSize2,
+			const uint8_t* payload3, const uint8_t payloadSize3,
+			const uint8_t* payload4, const uint8_t payloadSize4,
+			const uint8_t* payload5, const uint8_t payloadSize5,
+			const uint8_t* payload6, const uint8_t payloadSize6,
+			const uint8_t* payload7, const uint8_t payloadSize7) override
+		{
+			return SendMessageMultiPayload(header, payload1, payloadSize1, payload2, payloadSize2, payload3, payloadSize3, payload4, payloadSize4, payload5, payloadSize5, payload6, payloadSize6, payload7, payloadSize7);
+		}
+
+		virtual bool SendMessage(const uint8_t header,
+			const uint8_t* payload1, const uint8_t payloadSize1,
+			const uint8_t* payload2, const uint8_t payloadSize2,
+			const uint8_t* payload3, const uint8_t payloadSize3,
+			const uint8_t* payload4, const uint8_t payloadSize4,
+			const uint8_t* payload5, const uint8_t payloadSize5,
+			const uint8_t* payload6, const uint8_t payloadSize6,
+			const uint8_t* payload7, const uint8_t payloadSize7,
+			const uint8_t* payload8, const uint8_t payloadSize8) override
+		{
+			return SendMessageMultiPayload(header, payload1, payloadSize1, payload2, payloadSize2, payload3, payloadSize3, payload4, payloadSize4, payload5, payloadSize5, payload6, payloadSize6, payload7, payloadSize7, payload8, payloadSize8);
+		}
+
 
 		void OnSerialEvent()
 		{
@@ -331,6 +394,29 @@ namespace UartInterface
 		}
 
 	private:
+		template<typename... PayloadArgs>
+		bool SendMessageMultiPayload(const uint8_t header,
+			const uint8_t* payload1, const uint8_t payloadSize1,
+			PayloadArgs... payloadArgs)
+		{
+			static_assert((sizeof...(payloadArgs) % 2) == 0,
+				"SendMessage payload arguments must be pointer/size pairs.");
+
+			uint8_t totalPayloadSize = 0;
+			if (!ValidatePayloadParts(totalPayloadSize, payload1, payloadSize1, payloadArgs...))
+			{
+				return false;
+			}
+
+			OutBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Header] = header;
+			uint8_t payloadOffset = (uint8_t)MessageDefinition::FieldIndexEnum::Payload;
+			CopyPayloadParts(payloadOffset, payload1, payloadSize1, payloadArgs...);
+
+			const uint8_t outSize = Codec.EncodeMessageAndCrcInPlace(OutBuffer, MessageDefinition::GetMessageSize(totalPayloadSize));
+
+			return CanSendMessage() && UartWriter.SendMessage(outSize);
+		}
+
 		bool ValidatePayloadParts(uint8_t& totalPayloadSize)
 		{
 			return true;

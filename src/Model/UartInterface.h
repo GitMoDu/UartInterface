@@ -92,5 +92,70 @@ namespace UartInterface
 		virtual void OnUartRxError(const RxErrorEnum error) = 0;
 		virtual void OnUartTxError(const TxErrorEnum error) = 0;
 	};
+
+	struct IUartInterface
+	{
+		~IUartInterface() = default;
+
+		virtual void SetListener(IUartListener* listener) = 0;
+
+		virtual bool IsSerialConnected() = 0;
+		virtual bool CanSendMessage() = 0;
+
+		virtual bool SendMessage(const uint8_t header) = 0;
+
+		virtual bool SendMessage(const uint8_t header,
+			const uint8_t* payload1, const uint8_t payloadSize1) = 0;
+
+		virtual bool SendMessage(const uint8_t header,
+			const uint8_t* payload1, const uint8_t payloadSize1,
+			const uint8_t* payload2, const uint8_t payloadSize2) = 0;
+
+		virtual bool SendMessage(const uint8_t header,
+			const uint8_t* payload1, const uint8_t payloadSize1,
+			const uint8_t* payload2, const uint8_t payloadSize2,
+			const uint8_t* payload3, const uint8_t payloadSize3) = 0;
+
+		virtual bool SendMessage(const uint8_t header,
+			const uint8_t* payload1, const uint8_t payloadSize1,
+			const uint8_t* payload2, const uint8_t payloadSize2,
+			const uint8_t* payload3, const uint8_t payloadSize3,
+			const uint8_t* payload4, const uint8_t payloadSize4) = 0;
+
+		virtual bool SendMessage(const uint8_t header,
+			const uint8_t* payload1, const uint8_t payloadSize1,
+			const uint8_t* payload2, const uint8_t payloadSize2,
+			const uint8_t* payload3, const uint8_t payloadSize3,
+			const uint8_t* payload4, const uint8_t payloadSize4,
+			const uint8_t* payload5, const uint8_t payloadSize5) = 0;
+
+		virtual bool SendMessage(const uint8_t header,
+			const uint8_t* payload1, const uint8_t payloadSize1,
+			const uint8_t* payload2, const uint8_t payloadSize2,
+			const uint8_t* payload3, const uint8_t payloadSize3,
+			const uint8_t* payload4, const uint8_t payloadSize4,
+			const uint8_t* payload5, const uint8_t payloadSize5,
+			const uint8_t* payload6, const uint8_t payloadSize6) = 0;
+
+		virtual bool SendMessage(const uint8_t header,
+			const uint8_t* payload1, const uint8_t payloadSize1,
+			const uint8_t* payload2, const uint8_t payloadSize2,
+			const uint8_t* payload3, const uint8_t payloadSize3,
+			const uint8_t* payload4, const uint8_t payloadSize4,
+			const uint8_t* payload5, const uint8_t payloadSize5,
+			const uint8_t* payload6, const uint8_t payloadSize6,
+			const uint8_t* payload7, const uint8_t payloadSize7) = 0;
+
+		virtual bool SendMessage(const uint8_t header,
+			const uint8_t* payload1, const uint8_t payloadSize1,
+			const uint8_t* payload2, const uint8_t payloadSize2,
+			const uint8_t* payload3, const uint8_t payloadSize3,
+			const uint8_t* payload4, const uint8_t payloadSize4,
+			const uint8_t* payload5, const uint8_t payloadSize5,
+			const uint8_t* payload6, const uint8_t payloadSize6,
+			const uint8_t* payload7, const uint8_t payloadSize7,
+			const uint8_t* payload8, const uint8_t payloadSize8) = 0;
+
+	};
 }
 #endif
