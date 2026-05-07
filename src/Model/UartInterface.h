@@ -78,8 +78,10 @@ namespace UartInterface
 		EndTimeout
 	};
 
-	struct UartListener
+	struct IUartListener
 	{
+		~IUartListener() = default;
+
 		virtual void OnUartStateChange(const bool connected) = 0;
 
 		virtual void OnUartRx(const uint8_t header) = 0;

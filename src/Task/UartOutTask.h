@@ -38,7 +38,7 @@ namespace UartInterface
 		private:
 			SerialType& SerialInstance;
 			uint8_t* OutBuffer;
-			UartListener* Listener;
+			IUartListener* Listener;
 
 		private:
 			uint32_t OutStart = 0;
@@ -46,7 +46,7 @@ namespace UartInterface
 			uint8_t OutIndex = 0;
 
 		public:
-			UartOutTask(TS::Scheduler& scheduler, SerialType& serialInstance, uint8_t* outBuffer, UartListener* listener)
+			UartOutTask(TS::Scheduler& scheduler, SerialType& serialInstance, uint8_t* outBuffer, IUartListener* listener)
 				: Task(TASK_IMMEDIATE, TASK_FOREVER, &scheduler, false)
 				, SerialInstance(serialInstance)
 				, OutBuffer(outBuffer)

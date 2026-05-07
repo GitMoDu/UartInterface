@@ -37,7 +37,7 @@ namespace UartInterface
 
 	private:
 		SerialType& SerialInstance;
-		UartListener* Listener;
+		IUartListener* Listener;
 
 	private:
 
@@ -52,7 +52,7 @@ namespace UartInterface
 		StateEnum State = StateEnum::Disabled;
 
 	public:
-		UartInterfaceTask(TS::Scheduler& scheduler, SerialType& serialInstance, UartListener* listener,
+		UartInterfaceTask(TS::Scheduler& scheduler, SerialType& serialInstance, IUartListener* listener,
 			const uint8_t* key,
 			const uint8_t keySize)
 			: TS::Task(TASK_IMMEDIATE, TASK_FOREVER, &scheduler, false)

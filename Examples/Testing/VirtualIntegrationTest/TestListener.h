@@ -3,14 +3,15 @@
 
 #include <UartInterface.h>
 
-struct TestListener : UartInterface::UartListener
+struct TestListener : UartInterface::IUartListener
 {
 private:
 	const uint8_t DeviceId;
 
 public:
 	TestListener(const uint8_t deviceId)
-		: DeviceId(deviceId)
+		: UartInterface::IUartListener()
+		, DeviceId(deviceId)
 	{
 	}
 
@@ -49,7 +50,7 @@ public:
 		Serial.println(F(")"));
 	}
 
-	void OnUartTx() final
+	void OnUartTx(const uint8_t txSize) final
 	{
 		PrintName();
 		Serial.println(F("OnUartTx"));
