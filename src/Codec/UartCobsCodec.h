@@ -68,6 +68,10 @@ namespace UartCobsCodec
 		while (read_index < size)
 		{
 			const uint8_t code = buffer[read_index];
+			if (code == Codes::Delimiter)
+			{
+				return 0;
+			}
 
 			if (read_index + code > size && code != Codes::EndReplacement)
 			{

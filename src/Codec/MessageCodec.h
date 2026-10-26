@@ -38,7 +38,8 @@ namespace UartInterface
 
 		uint16_t EncodeMessageAndCrcInPlace(uint8_t* message, const uint16_t messageSize)
 		{
-			if (messageSize < uint8_t(MessageDefinition::FieldIndexEnum::Header))
+			if (messageSize < MessageDefinition::MessageSizeMin
+				|| messageSize > MessageDefinition::MessageSizeMax)
 			{
 				return 0;
 			}
@@ -69,7 +70,8 @@ namespace UartInterface
 
 		bool MessageValid(uint8_t* message, const uint16_t messageSize)
 		{
-			if (messageSize < (uint8_t)MessageDefinition::FieldIndexEnum::Header)
+			if (messageSize < MessageDefinition::MessageSizeMin
+				|| messageSize > MessageDefinition::MessageSizeMax)
 			{
 				return 0;
 			}
