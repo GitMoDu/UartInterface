@@ -13,8 +13,10 @@ namespace VirtualUart
 	/// </summary>
 	struct ISerial
 	{
-		virtual void ReceiveBytes(const uint8_t* data, size_t size) {}
-		virtual size_t AvailableReceive() {}
+		virtual ~ISerial() = default;
+
+		virtual void ReceiveBytes(const uint8_t* data, size_t size) = 0;
+		virtual size_t AvailableReceive() = 0;
 	};
 
 	/// <summary>
@@ -22,7 +24,7 @@ namespace VirtualUart
 	/// Implements bi-directional uart message passing in ring-buffer fashion.
 	/// </summary>
 	template<size_t BufferSize = 128>
-	class UartSerial : public virtual ISerial
+	class UartSerial : public ISerial
 	{
 	private:
 		enum class StateEnum
@@ -38,6 +40,9 @@ namespace VirtualUart
 
 	public:
 		ISerial* Receiver = nullptr;
+		bool BlockWriteAvailability = false;
+		bool BlockAfterStartDelimiter = false;
+		bool BlockAfterData = false;
 
 	public:
 		UartSerial(const uint8_t deviceId)
@@ -92,6 +97,9 @@ namespace VirtualUart
 
 		int availableForWrite()
 		{
+			if (BlockWriteAvailability)
+				return 0;
+
 			if (State == StateEnum::Enabled)
 			{
 				if (Receiver != nullptr)
@@ -139,6 +147,11 @@ namespace VirtualUart
 				if (Receiver != nullptr)
 				{
 					Receiver->ReceiveBytes(&data, 1);
+					if (BlockAfterStartDelimiter && data == 0)
+					{
+						BlockAfterStartDelimiter = false;
+						BlockWriteAvailability = true;
+					}
 				}
 				else
 				{
@@ -163,6 +176,11 @@ namespace VirtualUart
 				if (Receiver != nullptr)
 				{
 					Receiver->ReceiveBytes(buffer, size);
+					if (BlockAfterData && size > 0)
+					{
+						BlockAfterData = false;
+						BlockWriteAvailability = true;
+					}
 
 					return size;
 				}
