@@ -64,8 +64,10 @@ void setup()
 	}
 
 	CobsEncodeAndDecodeMatch();
+	CobsEdgeCases();
 	KeyedCrcStateMatches();
 	MessageEncodeAndDecodeMatch();
+	MessageCodecInvalidCases();
 
 	Serial.println();
 	Serial.println(F("All tests passed."));
@@ -76,6 +78,79 @@ void setup()
 
 	Serial.println(F("All benchmarks complete."));
 	Serial.println();
+}
+
+void MessageCodecInvalidCases()
+{
+	const uint8_t rawSize = MessageDefinition::MessageSizeMin + 2;
+	const uint16_t maxRawSize = MessageDefinition::MessageSizeMax + 1;
+	uint8_t shortMessage[MessageDefinition::MessageSizeMin]{};
+
+	for (uint8_t size = 0; size < MessageDefinition::MessageSizeMin; size++)
+	{
+		if (Codec.EncodeMessageAndCrcInPlace(shortMessage, size) != 0
+			|| Codec.MessageValid(shortMessage, size))
+		{
+			OnFail();
+		}
+	}
+
+	testOutMessage[(uint8_t)MessageDefinition::FieldIndexEnum::Header] = 0x42;
+	testOutMessage[(uint8_t)MessageDefinition::FieldIndexEnum::Payload] = 0xA5;
+	testOutMessage[(uint8_t)MessageDefinition::FieldIndexEnum::Payload + 1] = 0x5A;
+	const uint16_t encodedSize = Codec.EncodeMessageAndCrcInPlace(testOutMessage, rawSize);
+	if (encodedSize != MessageDefinition::GetBufferSizeFromMessage(rawSize))
+	{
+		OnFail();
+	}
+
+	memcpy(testBuffer, testOutMessage, encodedSize);
+	if (!Codec.DecodeMessageInPlaceIfValid(testBuffer, encodedSize)
+		|| testBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Header] != 0x42
+		|| testBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Payload] != 0xA5
+		|| testBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Payload + 1] != 0x5A)
+	{
+		OnFail();
+	}
+
+	for (uint16_t size = 0; size < encodedSize; size++)
+	{
+		memcpy(testBuffer, testOutMessage, encodedSize);
+		if (Codec.DecodeMessageInPlaceIfValid(testBuffer, size))
+		{
+			OnFail();
+		}
+	}
+
+	memcpy(testBuffer, testOutMessage, encodedSize);
+	if (UartCobsCodec::DecodeInPlace(testBuffer, encodedSize) != rawSize)
+	{
+		OnFail();
+	}
+	testBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Crc0] ^= 1;
+	const uint8_t badCrcSize = UartCobsCodec::Encode(testBuffer, testInMessage, rawSize);
+	if (Codec.DecodeMessageInPlaceIfValid(testInMessage, badCrcSize))
+	{
+		OnFail();
+	}
+
+	memcpy(testBuffer, testOutMessage, encodedSize);
+	if (UartCobsCodec::DecodeInPlace(testBuffer, encodedSize) != rawSize)
+	{
+		OnFail();
+	}
+	testBuffer[(uint8_t)MessageDefinition::FieldIndexEnum::Payload] ^= 1;
+	const uint8_t badPayloadSize = UartCobsCodec::Encode(testBuffer, testInMessage, rawSize);
+	if (Codec.DecodeMessageInPlaceIfValid(testInMessage, badPayloadSize))
+	{
+		OnFail();
+	}
+
+	if (Codec.EncodeMessageAndCrcInPlace(testBuffer, maxRawSize) != 0
+		|| Codec.MessageValid(testBuffer, maxRawSize))
+	{
+		OnFail();
+	}
 }
 
 void KeyedCrcStateMatches()
@@ -188,14 +263,6 @@ void MessageEncodeAndDecodeMatch()
 
 void CobsEncodeAndDecodeMatch()
 {
-	// Invalid size should fail.
-	if (CobsEncodeDecodeMatch(0))
-	{
-		OnFail();
-		Serial.print(F("COBS false invalid at "));
-		Serial.println(0);
-	}
-
 	for (size_t i = UartCobsCodec::DataSizeMax + 1; i <= UINT8_MAX; i++)
 	{
 		if (CobsEncodeDecodeMatch(i))
@@ -207,12 +274,63 @@ void CobsEncodeAndDecodeMatch()
 	}
 
 	// Valid sizes should match.
-	for (size_t i = 1; i <= UartCobsCodec::DataSizeMax; i++)
+	for (size_t i = 0; i <= UartCobsCodec::DataSizeMax; i++)
 	{
 		if (!CobsEncodeDecodeMatch(i))
 		{
 			Serial.print(F("COBS false valid at "));
 			Serial.println(i);
+			OnFail();
+		}
+	}
+}
+
+void CobsEdgeCases()
+{
+	const uint8_t input[]{ 0x11, 0, 0x22 };
+	const uint8_t expected[]{ 2, 0x11, 2, 0x22 };
+	const uint8_t invalidZeroCode[]{ 0, 1 };
+	const uint8_t truncatedBlock[]{ 3, 0x11 };
+
+	if (UartCobsCodec::GetBufferSize(0) != 1
+		|| UartCobsCodec::GetDataSize(0) != 0
+		|| !CobsEncodeDecodeMatch(0))
+	{
+		OnFail();
+	}
+
+	const uint8_t encodedSize = UartCobsCodec::Encode(input, testBuffer, sizeof(input));
+	if (encodedSize != sizeof(expected)
+		|| memcmp(testBuffer, expected, sizeof(expected)) != 0
+		|| UartCobsCodec::Decode(testBuffer, testInMessage, encodedSize) != sizeof(input)
+		|| memcmp(testInMessage, input, sizeof(input)) != 0)
+	{
+		OnFail();
+	}
+
+	if (UartCobsCodec::Decode(invalidZeroCode, testInMessage, sizeof(invalidZeroCode)) != 0
+		|| UartCobsCodec::Decode(truncatedBlock, testInMessage, sizeof(truncatedBlock)) != 0)
+	{
+		OnFail();
+	}
+
+	for (uint8_t i = 0; i < UartCobsCodec::DataSizeMax; i++)
+	{
+		testOutMessage[i] = 0x55;
+	}
+
+	const uint8_t maxEncodedSize = UartCobsCodec::Encode(testOutMessage, testBuffer, UartCobsCodec::DataSizeMax);
+	if (maxEncodedSize != UartCobsCodec::BufferSizeMax
+		|| testBuffer[0] != UartCobsCodec::DataSizeMax + 1
+		|| UartCobsCodec::Decode(testBuffer, testInMessage, maxEncodedSize) != UartCobsCodec::DataSizeMax)
+	{
+		OnFail();
+	}
+
+	for (uint8_t i = 0; i < UartCobsCodec::DataSizeMax; i++)
+	{
+		if (testInMessage[i] != 0x55)
+		{
 			OnFail();
 		}
 	}
@@ -334,8 +452,7 @@ bool MessageEncodeAndDecodeMatch(const uint8_t payloadSize)
 
 bool CobsEncodeDecodeMatch(const size_t size)
 {
-	if (size == 0
-		|| size > UartCobsCodec::DataSizeMax)
+	if (size > UartCobsCodec::DataSizeMax)
 	{
 		return false;
 	}
