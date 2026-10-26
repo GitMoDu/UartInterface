@@ -352,6 +352,10 @@ namespace UartInterface
 				}
 				else if (millis() - LastIn > UartDefinitions::ReadTimeoutMillis)
 				{
+					if (InSize > 0 && Listener != nullptr)
+					{
+						Listener->OnUartRxError(RxErrorEnum::EndTimeout);
+					}
 					InSize = 0;
 					PollStart = millis();
 					State = StateEnum::ActiveWaitPoll;
