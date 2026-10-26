@@ -42,8 +42,7 @@ namespace VirtualUart
 	public:
 		UartSerial(const uint8_t deviceId)
 			: DeviceId(deviceId)
-		{
-		}
+		{}
 
 		size_t AvailableReceive() final
 		{
@@ -100,15 +99,11 @@ namespace VirtualUart
 					return Receiver->AvailableReceive();
 				}
 			}
-			else
-			{
-				return 0;
-			}
+			return 0;
 		}
 
 		void clearWriteError()
-		{
-		}
+		{}
 
 		int peek(void)
 		{
@@ -135,8 +130,7 @@ namespace VirtualUart
 		}
 
 		void flush()
-		{
-		}
+		{}
 
 		size_t write(const uint8_t data)
 		{
@@ -183,6 +177,7 @@ namespace VirtualUart
 			{
 				PrintName();
 				Serial.println(F("Rejected, disabled."));
+				return 0;
 			}
 		}
 

@@ -7,6 +7,9 @@
 template<typename InterfaceType, uint8_t MaxPayloadSize = 16>
 class TestSenderTask : public TS::Task
 {
+public:
+	static constexpr uint32_t SendIntervalMillis = 100;
+
 private:
 	InterfaceType& Interface;
 
@@ -15,18 +18,42 @@ private:
 	uint8_t TestHeader = 123;
 	uint8_t TestPayloadSize = 0;
 	uint8_t TestPayload[MaxPayloadSize]{};
+	uint8_t SentCount = 0;
 
 public:
 	TestSenderTask(TS::Scheduler& scheduler, InterfaceType& interface, const uint8_t deviceId)
-		: TS::Task(1000, TASK_FOREVER, &scheduler, false)
+		: TS::Task(SendIntervalMillis, TASK_FOREVER, &scheduler, false)
 		, Interface(interface)
 		, DeviceId(deviceId)
 	{
 	}
 
+	bool Failed = false;
+	bool Complete = false;
+
 	bool Callback() final
 	{
-		Interface.SendMessage(TestHeader, TestPayload, TestPayloadSize);
+		PrintName();
+		Serial.print(F("Sending header "));
+		Serial.print(TestHeader);
+		Serial.print(F(" with payload length "));
+		Serial.println(TestPayloadSize);
+		if (!Interface.SendMessage(TestHeader, TestPayload, TestPayloadSize))
+		{
+			Failed = true;
+			PrintName();
+			Serial.println(F("FAIL: SendMessage rejected the frame"));
+			disable();
+			return true;
+		}
+
+		SentCount++;
+		if (SentCount == MaxPayloadSize + 1)
+		{
+			Complete = true;
+			disable();
+			return true;
+		}
 
 		TestHeader++;
 		TestPayloadSize++;
@@ -40,6 +67,8 @@ public:
 		{
 			TestPayloadSize = 0;
 		}
+
+		return true;
 	}
 
 private:
