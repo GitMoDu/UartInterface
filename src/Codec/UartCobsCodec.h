@@ -22,7 +22,7 @@ namespace UartCobsCodec
 
 	static constexpr uint16_t GetDataSize(const uint16_t bufferSize)
 	{
-		return uint8_t(bufferSize <= (DataSizeMax + 1)) * (bufferSize - 1);
+		return uint16_t(bufferSize > 0 && bufferSize <= (DataSizeMax + 1)) * (bufferSize - 1);
 	}
 
 	static uint8_t Encode(const uint8_t* buffer, uint8_t* encodedBuffer, const uint8_t size)
