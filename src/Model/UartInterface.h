@@ -80,7 +80,7 @@ namespace UartInterface
 
 	struct IUartListener
 	{
-		~IUartListener() = default;
+		virtual ~IUartListener() = default;
 
 		virtual void OnUartStateChange(const bool connected) = 0;
 
@@ -95,7 +95,7 @@ namespace UartInterface
 
 	struct IUartInterface
 	{
-		~IUartInterface() = default;
+		virtual ~IUartInterface() = default;
 
 		virtual void SetListener(IUartListener* listener) = 0;
 
