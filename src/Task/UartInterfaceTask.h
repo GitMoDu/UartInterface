@@ -64,6 +64,16 @@ namespace UartInterface
 			, Listener(listener)
 		{}
 
+		UartInterfaceTask(TS::Scheduler& scheduler, SerialType& serialInstance, IUartListener* listener,
+			const uint32_t key)
+			: UartInterface::IUartInterface()
+			, TS::Task(TASK_IMMEDIATE, TASK_FOREVER, &scheduler, false)
+			, UartWriter(scheduler, serialInstance, OutBuffer, listener)
+			, Codec(key)
+			, SerialInstance(serialInstance)
+			, Listener(listener)
+		{}
+
 		virtual void SetListener(IUartListener* listener) override
 		{
 			Listener = listener;

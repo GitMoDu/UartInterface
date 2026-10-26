@@ -64,6 +64,7 @@ void setup()
 	}
 
 	CobsEncodeAndDecodeMatch();
+	KeyedCrcStateMatches();
 	MessageEncodeAndDecodeMatch();
 
 	Serial.println();
@@ -75,6 +76,65 @@ void setup()
 
 	Serial.println(F("All benchmarks complete."));
 	Serial.println();
+}
+
+void KeyedCrcStateMatches()
+{
+	uint8_t key[]{ 0x12, 0x34, 0x56, 0x78 };
+	const uint8_t data[]{ 0xA5, 0x5A, 0x00, 0xFF };
+	KeyedCrc byteKeyCrc(key, sizeof(key));
+	KeyedCrc integerKeyCrc((uint32_t)0x12345678);
+	const uint16_t expectedCrc = 0x0415;
+
+	if (!byteKeyCrc.Setup() || !integerKeyCrc.Setup()
+		|| GetReferenceFletcher(key, sizeof(key), data, sizeof(data)) != expectedCrc
+		|| byteKeyCrc.GetCrc(data, sizeof(data)) != expectedCrc
+		|| integerKeyCrc.GetCrc(data, sizeof(data)) != expectedCrc)
+	{
+		OnFail();
+	}
+
+	key[0] = 0;
+	if (byteKeyCrc.GetCrc(data, sizeof(data)) != expectedCrc)
+	{
+		OnFail();
+	}
+}
+
+uint16_t GetReferenceFletcher(const uint8_t* key, const uint8_t keySize, const uint8_t* data, const uint16_t dataSize)
+{
+	uint16_t sum1 = 0;
+	uint16_t sum2 = 0;
+
+	for (uint8_t i = 0; i < keySize; i++)
+	{
+		sum1 += key[i];
+		if (sum1 >= 255)
+		{
+			sum1 -= 255;
+		}
+		sum2 += sum1;
+		if (sum2 >= 255)
+		{
+			sum2 -= 255;
+		}
+	}
+
+	for (uint16_t i = 0; i < dataSize; i++)
+	{
+		sum1 += data[i];
+		if (sum1 >= 255)
+		{
+			sum1 -= 255;
+		}
+		sum2 += sum1;
+		if (sum2 >= 255)
+		{
+			sum2 -= 255;
+		}
+	}
+
+	return (sum2 << 8) | sum1;
 }
 
 void MessageEncodeAndDecodeBenchmark()

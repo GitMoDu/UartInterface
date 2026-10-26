@@ -26,6 +26,11 @@ namespace UartInterface
 		{
 		}
 
+		MessageCodec(const uint32_t key)
+			: Crc(key)
+		{
+		}
+
 		bool Setup()
 		{
 			return Crc.Setup();
